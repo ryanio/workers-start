@@ -21,7 +21,10 @@ let modulePromise: Promise<WorkersModule | null> | null = null;
 let override: WorkersModule | null | undefined;
 
 function processEnv(): Record<string, string | undefined> {
-  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+  return (
+    (globalThis as { process?: { env?: Record<string, string | undefined> } })
+      .process?.env ?? {}
+  );
 }
 
 /** The `cloudflare:workers` module, or null outside workerd. */
@@ -47,7 +50,10 @@ export function setWorkersModule(mod: WorkersModule | null | undefined): void {
 }
 
 /** A binding by name, or null when it is missing or fails the guard. */
-export async function getBinding<T>(name: string, guard?: (value: unknown) => value is T): Promise<T | null> {
+export async function getBinding<T>(
+  name: string,
+  guard?: (value: unknown) => value is T,
+): Promise<T | null> {
   const mod = await loadWorkers();
   const value = mod?.env[name];
   if (value === undefined || value === null) {
@@ -91,12 +97,20 @@ export async function afterResponse(work: Promise<unknown>): Promise<void> {
 /** True for a KV namespace (it has `getWithMetadata`, which R2 buckets do not). Use as a `getBinding` guard. */
 export function isKvNamespace(value: unknown): value is {
   get(key: string): Promise<string | null>;
-  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  put(
+    key: string,
+    value: string,
+    options?: { expirationTtl?: number },
+  ): Promise<void>;
 } {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const candidate = value as { get?: unknown; put?: unknown; getWithMetadata?: unknown };
+  const candidate = value as {
+    get?: unknown;
+    put?: unknown;
+    getWithMetadata?: unknown;
+  };
   return (
     typeof candidate.get === "function" &&
     typeof candidate.put === "function" &&

@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createEntry, defaultIsPage, mergeVary, normalizePath, underPrefix, wantsMarkdown } from "../src/entry.js";
+import {
+  createEntry,
+  defaultIsPage,
+  mergeVary,
+  normalizePath,
+  underPrefix,
+  wantsMarkdown,
+} from "../src/entry.js";
 
 // A stand-in for the Start handler: Start answers 406 to page requests whose
 // Accept rules out HTML, routes /API/x like /api/x, and renders an empty 200
@@ -13,34 +20,53 @@ const start = {
     if (pathname.toLowerCase().startsWith("/api")) {
       return request.method === "GET" || request.method === "HEAD"
         ? Response.json({ ok: true })
-        : new Response("<html></html>", { headers: { "content-type": "text/html" } });
+        : new Response("<html></html>", {
+            headers: { "content-type": "text/html" },
+          });
     }
     if (pathname.endsWith("/")) {
-      return new Response(null, { status: 307, headers: { location: pathname.slice(0, -1) } });
+      return new Response(null, {
+        status: 307,
+        headers: { location: pathname.slice(0, -1) },
+      });
     }
     if (!/(^|,)\s*(\*\/\*|text\/html)/.test(accept)) {
-      return Response.json({ error: "Only HTML requests are supported here" }, { status: 406 });
+      return Response.json(
+        { error: "Only HTML requests are supported here" },
+        { status: 406 },
+      );
     }
-    const headers: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
+    const headers: Record<string, string> = {
+      "content-type": "text/html; charset=utf-8",
+    };
     if (pathname === "/encoded") headers.vary = "accept-encoding";
     return new Response(`<html>${pathname}</html>`, { headers });
   },
 };
 
-const renderer = vi.fn((path: string): ReturnType<NonNullable<Parameters<typeof createEntry>[0]["markdown"]>> => {
-  if (path === "/") return "# Home";
-  if (path === "/learn") return "# Learn";
-  if (path === "/learn/café") return "# Café";
-  if (path === "/html-only") return null;
-  if (path === "/empty") return { body: "", status: 204 };
-  if (path === "/broken") throw new Error("boom");
-  return { body: `# Not found: ${path}`, status: 404 };
-});
+const renderer = vi.fn(
+  (
+    path: string,
+  ): ReturnType<NonNullable<Parameters<typeof createEntry>[0]["markdown"]>> => {
+    if (path === "/") return "# Home";
+    if (path === "/learn") return "# Learn";
+    if (path === "/learn/café") return "# Café";
+    if (path === "/html-only") return null;
+    if (path === "/empty") return { body: "", status: 204 };
+    if (path === "/broken") throw new Error("boom");
+    return { body: `# Not found: ${path}`, status: 404 };
+  },
+);
 
 const entry = createEntry({ handler: start, markdown: renderer });
 
 const send = (path: string, accept?: string, method = "GET") =>
-  entry.fetch(new Request(`https://example.com${path}`, { method, headers: accept ? { accept } : {} }));
+  entry.fetch(
+    new Request(`https://example.com${path}`, {
+      method,
+      headers: accept ? { accept } : {},
+    }),
+  );
 
 afterEach(() => {
   start.calls.length = 0;
@@ -51,21 +77,37 @@ describe("Markdown negotiation", () => {
   it("serves the Markdown rendering on the same URL", async () => {
     const res = await send("/learn/", "text/markdown");
     expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(res.headers.get("content-type")).toBe(
+      "text/markdown; charset=utf-8",
+    );
     expect(res.headers.get("vary")).toBe("Accept");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
     expect(await res.text()).toBe("# Learn");
   });
 
   it("passes the renderer a decoded path", async () => {
-    expect(await (await send("/learn/caf%C3%A9", "text/markdown")).text()).toBe("# Café");
+    expect(await (await send("/learn/caf%C3%A9", "text/markdown")).text()).toBe(
+      "# Café",
+    );
   });
 
   it("respects q-values and case", async () => {
-    expect((await send("/learn", "text/markdown;q=0, text/html")).headers.get("content-type")).toContain("text/html");
-    expect((await send("/learn", "text/html, text/markdown;q=0.1")).headers.get("content-type")).toContain("text/html");
-    expect((await send("/learn", "Text/Markdown")).headers.get("content-type")).toContain("text/markdown");
-    expect((await send("/learn", "*/*")).headers.get("content-type")).toContain("text/html");
+    expect(
+      (await send("/learn", "text/markdown;q=0, text/html")).headers.get(
+        "content-type",
+      ),
+    ).toContain("text/html");
+    expect(
+      (await send("/learn", "text/html, text/markdown;q=0.1")).headers.get(
+        "content-type",
+      ),
+    ).toContain("text/html");
+    expect(
+      (await send("/learn", "Text/Markdown")).headers.get("content-type"),
+    ).toContain("text/markdown");
+    expect((await send("/learn", "*/*")).headers.get("content-type")).toContain(
+      "text/html",
+    );
   });
 
   it("passes the renderer's status through, with no body where the status forbids one", async () => {
@@ -77,14 +119,20 @@ describe("Markdown negotiation", () => {
 
   it("answers HEAD with headers and no body", async () => {
     const res = await send("/", "text/markdown", "HEAD");
-    expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(res.headers.get("content-type")).toBe(
+      "text/markdown; charset=utf-8",
+    );
     expect(await res.text()).toBe("");
   });
 
   it("serves HTML when the renderer returns null or throws", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    expect((await send("/html-only", "text/markdown")).headers.get("content-type")).toContain("text/html");
-    expect((await send("/broken", "text/markdown")).headers.get("content-type")).toContain("text/html");
+    expect(
+      (await send("/html-only", "text/markdown")).headers.get("content-type"),
+    ).toContain("text/html");
+    expect(
+      (await send("/broken", "text/markdown")).headers.get("content-type"),
+    ).toContain("text/html");
     expect(spy).toHaveBeenCalledOnce();
     spy.mockRestore();
   });
@@ -101,10 +149,13 @@ describe("Markdown from rendered HTML", () => {
     };
     const converting = createEntry({
       handler,
-      markdown: async (_path, _request, page) => (await (await page.html()).text()).replace("<html>", "# "),
+      markdown: async (_path, _request, page) =>
+        (await (await page.html()).text()).replace("<html>", "# "),
     });
     const res = await converting.fetch(
-      new Request("https://example.com/learn", { headers: { accept: "text/markdown" } }),
+      new Request("https://example.com/learn", {
+        headers: { accept: "text/markdown" },
+      }),
       "env",
     );
     expect(await res.text()).toBe("# /learn</html>");
@@ -122,9 +173,15 @@ describe("HTML pages", () => {
   });
 
   it("adds Vary: Accept to every page response, redirects included, without duplicating", async () => {
-    expect((await send("/learn", "text/html")).headers.get("vary")).toBe("Accept");
-    expect((await send("/learn/", "text/html")).headers.get("vary")).toBe("Accept");
-    expect((await send("/encoded")).headers.get("vary")).toBe("accept-encoding, Accept");
+    expect((await send("/learn", "text/html")).headers.get("vary")).toBe(
+      "Accept",
+    );
+    expect((await send("/learn/", "text/html")).headers.get("vary")).toBe(
+      "Accept",
+    );
+    expect((await send("/encoded")).headers.get("vary")).toBe(
+      "accept-encoding, Accept",
+    );
   });
 
   it("answers HEAD for HTML pages through the handler", async () => {
@@ -142,7 +199,13 @@ describe("HTML pages", () => {
 
 describe("read-only prefixes", () => {
   it("answers writes with 405, however the path is spelled", async () => {
-    for (const path of ["/api/gas", "/API/gas", "/%61pi/gas", "//api//gas", "/api"]) {
+    for (const path of [
+      "/api/gas",
+      "/API/gas",
+      "/%61pi/gas",
+      "//api//gas",
+      "/api",
+    ]) {
       const res = await send(path, undefined, "POST");
       expect(res.status, path).toBe(405);
       expect(res.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
@@ -156,13 +219,17 @@ describe("read-only prefixes", () => {
   });
 
   it("passes reads through untouched, Markdown Accept or not", async () => {
-    expect(await (await send("/API/gas", "text/markdown")).json()).toEqual({ ok: true });
+    expect(await (await send("/API/gas", "text/markdown")).json()).toEqual({
+      ok: true,
+    });
     expect(renderer).not.toHaveBeenCalled();
   });
 
   it("can be turned off", async () => {
     const open = createEntry({ handler: start, readOnlyPrefixes: [] });
-    const res = await open.fetch(new Request("https://example.com/api/x", { method: "POST" }));
+    const res = await open.fetch(
+      new Request("https://example.com/api/x", { method: "POST" }),
+    );
     expect(res.status).toBe(200);
   });
 
@@ -186,8 +253,16 @@ describe("page detection", () => {
   });
 
   it("uses a custom isPage, passing other paths to the handler untouched", async () => {
-    const custom = createEntry({ handler: start, markdown: renderer, isPage: (p) => p === "/" });
-    const res = await custom.fetch(new Request("https://example.com/learn", { headers: { accept: "text/markdown" } }));
+    const custom = createEntry({
+      handler: start,
+      markdown: renderer,
+      isPage: (p) => p === "/",
+    });
+    const res = await custom.fetch(
+      new Request("https://example.com/learn", {
+        headers: { accept: "text/markdown" },
+      }),
+    );
     expect(renderer).not.toHaveBeenCalled();
     expect(start.calls[0]?.headers.get("accept")).toBe("text/markdown");
     expect(res.headers.get("vary")).toBeNull();
@@ -203,12 +278,20 @@ describe("helpers", () => {
 
   it("merges Vary tokens case-insensitively and leaves * alone", () => {
     expect(mergeVary(null, "Accept")).toBe("Accept");
-    expect(mergeVary("Accept, Accept-Encoding", "Accept")).toBe("Accept, Accept-Encoding");
+    expect(mergeVary("Accept, Accept-Encoding", "Accept")).toBe(
+      "Accept, Accept-Encoding",
+    );
     expect(mergeVary("*", "Accept")).toBe("*");
   });
 
   it("reads Accept from a request", () => {
-    expect(wantsMarkdown(new Request("https://x", { headers: { accept: "text/markdown, text/html" } }))).toBe(true);
+    expect(
+      wantsMarkdown(
+        new Request("https://x", {
+          headers: { accept: "text/markdown, text/html" },
+        }),
+      ),
+    ).toBe(true);
     expect(wantsMarkdown(new Request("https://x"))).toBe(false);
   });
 });

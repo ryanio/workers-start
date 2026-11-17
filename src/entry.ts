@@ -17,7 +17,11 @@ import { parseAccept, quality } from "./accept.js";
 type MaybePromise<T> = T | Promise<T>;
 
 /** What a Markdown renderer returns: a body, a body with a status, or null to serve HTML. */
-export type MarkdownResult = string | { body: string; status?: number } | null | undefined;
+export type MarkdownResult =
+  | string
+  | { body: string; status?: number }
+  | null
+  | undefined;
 
 /** What the Markdown renderer can reach besides the path and request. */
 export interface MarkdownPage {
@@ -40,7 +44,11 @@ export interface EntryOptions {
    * served. `page.html()` renders the same request through the handler as
    * HTML, for a renderer that converts the page instead of building it.
    */
-  markdown?: (path: string, request: Request, page: MarkdownPage) => MaybePromise<MarkdownResult>;
+  markdown?: (
+    path: string,
+    request: Request,
+    page: MarkdownPage,
+  ) => MaybePromise<MarkdownResult>;
   /**
    * Path prefixes that only accept GET, HEAD and OPTIONS. Matched by segment,
    * case-insensitively, after decoding: `/api` covers `/api`, `/api/x` and
@@ -54,16 +62,24 @@ export interface EntryOptions {
 /** Last-segment extensions that mark a file rather than a page. */
 const FILE_EXTENSION =
   /\.(?:js|mjs|cjs|css|map|json|xml|txt|md|csv|ico|png|jpe?g|gif|svg|webp|avif|bmp|woff2?|ttf|otf|eot|pdf|mp[34]|webm|wav|ogg|zip|gz|br|wasm|webmanifest|html?|rss|atom)$/i;
-const DEV_INTERNALS = ["/@vite/", "/@fs/", "/@id/", "/@react-refresh", "/node_modules/"];
+const DEV_INTERNALS = [
+  "/@vite/",
+  "/@fs/",
+  "/@id/",
+  "/@react-refresh",
+  "/node_modules/",
+];
 const DUPLICATE_SLASHES = /\/{2,}/g;
 const TRAILING_SLASHES = /\/+$/;
 
-export const MARKDOWN_HEADERS: Readonly<Record<string, string>> = Object.freeze({
-  "content-type": "text/markdown; charset=utf-8",
-  vary: "Accept",
-  // A Markdown body is a second representation of a page, not a page of its own.
-  "x-robots-tag": "noindex",
-});
+export const MARKDOWN_HEADERS: Readonly<Record<string, string>> = Object.freeze(
+  {
+    "content-type": "text/markdown; charset=utf-8",
+    vary: "Accept",
+    // A Markdown body is a second representation of a page, not a page of its own.
+    "x-robots-tag": "noindex",
+  },
+);
 
 /**
  * True when the client names text/markdown with q > 0 and rates it at least
@@ -108,11 +124,17 @@ export function underPrefix(path: string, prefix: string): boolean {
  * `.js` or `.xml` on the last segment. A dotted slug like `/blog/node.js-tips`
  * is still a page.
  */
-export function defaultIsPage(path: string, readOnlyPrefixes: readonly string[] = ["/api"]): boolean {
+export function defaultIsPage(
+  path: string,
+  readOnlyPrefixes: readonly string[] = ["/api"],
+): boolean {
   if (readOnlyPrefixes.some((prefix) => underPrefix(path, prefix))) {
     return false;
   }
-  if (path.startsWith("/_") || DEV_INTERNALS.some((prefix) => path.startsWith(prefix))) {
+  if (
+    path.startsWith("/_") ||
+    DEV_INTERNALS.some((prefix) => path.startsWith(prefix))
+  ) {
     return false;
   }
   return !FILE_EXTENSION.test(path);
@@ -132,10 +154,17 @@ export function mergeVary(existing: string | null, token: string): string {
 
 const NULL_BODY_STATUS = new Set([101, 204, 205, 304]);
 
-function markdownResponse(result: Exclude<MarkdownResult, null | undefined>, head: boolean): Response {
-  const { body, status = 200 } = typeof result === "string" ? { body: result } : result;
+function markdownResponse(
+  result: Exclude<MarkdownResult, null | undefined>,
+  head: boolean,
+): Response {
+  const { body, status = 200 } =
+    typeof result === "string" ? { body: result } : result;
   const noBody = head || NULL_BODY_STATUS.has(status);
-  return new Response(noBody ? null : body, { status, headers: MARKDOWN_HEADERS });
+  return new Response(noBody ? null : body, {
+    status,
+    headers: MARKDOWN_HEADERS,
+  });
 }
 
 function withAcceptHtml(request: Request): Request {
@@ -151,14 +180,19 @@ function withVaryAccept(response: Response): Response {
   }
   const headers = new Headers(response.headers);
   headers.set("vary", vary);
-  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 export function createEntry(options: EntryOptions): {
   fetch(request: Request, ...rest: unknown[]): Promise<Response>;
 } {
   const readOnlyPrefixes = options.readOnlyPrefixes ?? ["/api"];
-  const isPage = options.isPage ?? ((path: string) => defaultIsPage(path, readOnlyPrefixes));
+  const isPage =
+    options.isPage ?? ((path: string) => defaultIsPage(path, readOnlyPrefixes));
 
   return {
     async fetch(request, ...rest) {
@@ -168,7 +202,10 @@ export function createEntry(options: EntryOptions): {
 
       if (readOnlyPrefixes.some((prefix) => underPrefix(path, prefix))) {
         if (method === "OPTIONS") {
-          return new Response(null, { status: 204, headers: { allow: "GET, HEAD, OPTIONS" } });
+          return new Response(null, {
+            status: 204,
+            headers: { allow: "GET, HEAD, OPTIONS" },
+          });
         }
         if (!isRead) {
           return Response.json(
@@ -186,17 +223,23 @@ export function createEntry(options: EntryOptions): {
       if (options.markdown && wantsMarkdown(request)) {
         try {
           const result = await options.markdown(path, request, {
-            html: async () => options.handler.fetch(withAcceptHtml(request), ...rest),
+            html: async () =>
+              options.handler.fetch(withAcceptHtml(request), ...rest),
           });
           if (result !== null && result !== undefined) {
             return markdownResponse(result, method === "HEAD");
           }
         } catch (error) {
-          console.error("workers-start: markdown renderer failed, serving HTML", error);
+          console.error(
+            "workers-start: markdown renderer failed, serving HTML",
+            error,
+          );
         }
       }
 
-      const pageRequest = acceptsHtml(request) ? request : withAcceptHtml(request);
+      const pageRequest = acceptsHtml(request)
+        ? request
+        : withAcceptHtml(request);
       const response = await options.handler.fetch(pageRequest, ...rest);
       return options.markdown ? withVaryAccept(response) : response;
     },

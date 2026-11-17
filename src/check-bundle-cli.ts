@@ -7,7 +7,11 @@
  */
 
 import { relative, resolve } from "node:path";
-import { checkBundle, DEFAULT_PUBLIC_PREFIXES, DEFAULT_SKIP } from "./check-bundle.js";
+import {
+  checkBundle,
+  DEFAULT_PUBLIC_PREFIXES,
+  DEFAULT_SKIP,
+} from "./check-bundle.js";
 
 const USAGE = `Usage: workers-start-check-bundle [options]
 
@@ -92,15 +96,21 @@ function main(): void {
   });
 
   if (result.leaked.length === 0) {
-    console.log(`  ok  none of ${result.envValues} local env value(s) appear in ${result.files} built file(s)`);
+    console.log(
+      `  ok  none of ${result.envValues} local env value(s) appear in ${result.files} built file(s)`,
+    );
     return;
   }
 
-  console.error(`\nRefusing to ship: the build contains the value of ${result.leaked.length} local secret(s):\n`);
+  console.error(
+    `\nRefusing to ship: the build contains the value of ${result.leaked.length} local secret(s):\n`,
+  );
   for (const key of result.leaked) {
     console.error(`  ${key}`);
   }
-  const where = dists.map((dist) => `${relative(process.cwd(), dist) || "."}/`).join(", ");
+  const where = dists
+    .map((dist) => `${relative(process.cwd(), dist) || "."}/`)
+    .join(", ");
   console.error(
     `\n  Find where it is read at build time (import.meta.env, define, a module-scope\n  process.env read) under ${where} and fix that. If the value is meant to be\n  public, pass --allow <KEY> or --public-prefix <PREFIX>.\n`,
   );
@@ -110,6 +120,8 @@ function main(): void {
 try {
   main();
 } catch (error) {
-  console.error(`\n  ${error instanceof Error ? error.message : String(error)}\n`);
+  console.error(
+    `\n  ${error instanceof Error ? error.message : String(error)}\n`,
+  );
   process.exit(1);
 }

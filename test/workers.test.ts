@@ -14,8 +14,16 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const kv = { get: async () => null, put: async () => undefined, getWithMetadata: async () => null };
-const r2 = { get: async () => null, put: async () => undefined, list: async () => ({}) };
+const kv = {
+  get: async () => null,
+  put: async () => undefined,
+  getWithMetadata: async () => null,
+};
+const r2 = {
+  get: async () => null,
+  put: async () => undefined,
+  list: async () => ({}),
+};
 
 describe("outside workerd", () => {
   it("finds no module even under vitest, so bindings are null", async () => {
@@ -32,7 +40,9 @@ describe("outside workerd", () => {
     );
     expect(done).toBe(true);
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    await expect(afterResponse(Promise.reject(new Error("kv write failed")))).resolves.toBeUndefined();
+    await expect(
+      afterResponse(Promise.reject(new Error("kv write failed"))),
+    ).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledOnce();
   });
 
@@ -45,7 +55,10 @@ describe("outside workerd", () => {
 describe("inside workerd", () => {
   it("prefers the Worker env and hands work to waitUntil", async () => {
     const waitUntil = vi.fn();
-    setWorkersModule({ env: { API_KEY: "from-worker", GAS_KV: kv, BUCKET: r2, EMPTY: "" }, waitUntil });
+    setWorkersModule({
+      env: { API_KEY: "from-worker", GAS_KV: kv, BUCKET: r2, EMPTY: "" },
+      waitUntil,
+    });
     vi.stubEnv("API_KEY", "from-process");
     vi.stubEnv("EMPTY", "fallback");
 

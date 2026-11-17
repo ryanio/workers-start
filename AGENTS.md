@@ -10,7 +10,6 @@
 - `src/workers.ts`: lazy `cloudflare:workers` access.
 - `src/scripts.ts`: inline theme and analytics bootstraps.
 - `src/check-bundle.ts`, `src/check-bundle-cli.ts`: the secret check and its `workers-start-check-bundle` bin.
-- `biome.preset.json`: the shared Biome config, exported as `workers-start/biome`. `biome.json` is this repo's own config.
 - `test/`: Node tests. The CLI and package tests run the built `dist/`, so `npm test` builds first.
 
 ## Rules

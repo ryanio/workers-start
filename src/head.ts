@@ -88,7 +88,12 @@ export interface PageSeo {
    * `link rel="alternate"` entries after the canonical: language versions
    * with `hreflang`, or feeds with `type`. `href` is a path or URL.
    */
-  alternates?: { href: string; hreflang?: string; type?: string; title?: string }[];
+  alternates?: {
+    href: string;
+    hreflang?: string;
+    type?: string;
+    title?: string;
+  }[];
   /** Extra links, appended last as given. */
   links?: HeadLink[];
   /**
@@ -98,7 +103,10 @@ export interface PageSeo {
   jsonLd?: object | object[];
 }
 
-export type MetaTag = { title: string } | { name: string; content: string } | { property: string; content: string };
+export type MetaTag =
+  | { title: string }
+  | { name: string; content: string }
+  | { property: string; content: string };
 
 export interface HeadLink {
   rel: string;
@@ -155,7 +163,8 @@ export function createPageHead(site: SiteHead): {
   absoluteUrl: (path: string) => string;
 } {
   const origin = new URL(site.url).origin;
-  const template = site.titleTemplate ?? ((title: string) => `${title} | ${site.name}`);
+  const template =
+    site.titleTemplate ?? ((title: string) => `${title} | ${site.name}`);
 
   /** `/` maps to the bare origin; anything else resolves against it, so absolute URLs pass through. */
   const absoluteUrl = (path: string): string => {
@@ -163,7 +172,9 @@ export function createPageHead(site: SiteHead): {
       return origin;
     }
     const resolved = new URL(
-      path.startsWith("/") || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(path) ? path : `/${path}`,
+      path.startsWith("/") || /^[a-z][a-z0-9+.-]*:|^\/\//i.test(path)
+        ? path
+        : `/${path}`,
       `${origin}/`,
     );
     return resolved.href;
@@ -175,7 +186,9 @@ export function createPageHead(site: SiteHead): {
     const socialDescription = seo.socialDescription ?? seo.description;
     const imageInput = seo.image ?? site.defaultImage;
     const image: PageImage | undefined =
-      typeof imageInput === "string" ? { url: imageInput, ...seo.imageSize } : imageInput;
+      typeof imageInput === "string"
+        ? { url: imageInput, ...seo.imageSize }
+        : imageInput;
     const imageUrl = image ? absoluteUrl(image.url) : undefined;
 
     const meta: MetaTag[] = [
@@ -202,43 +215,80 @@ export function createPageHead(site: SiteHead): {
     );
     if (image && imageUrl) {
       meta.push({ property: "og:image", content: imageUrl });
-      if (image.type) meta.push({ property: "og:image:type", content: image.type });
-      if (image.width) meta.push({ property: "og:image:width", content: String(image.width) });
-      if (image.height) meta.push({ property: "og:image:height", content: String(image.height) });
-      if (image.alt) meta.push({ property: "og:image:alt", content: image.alt });
+      if (image.type)
+        meta.push({ property: "og:image:type", content: image.type });
+      if (image.width)
+        meta.push({ property: "og:image:width", content: String(image.width) });
+      if (image.height)
+        meta.push({
+          property: "og:image:height",
+          content: String(image.height),
+        });
+      if (image.alt)
+        meta.push({ property: "og:image:alt", content: image.alt });
     }
     meta.push({ property: "og:type", content: seo.type ?? "website" });
-    if (seo.published) meta.push({ property: "article:published_time", content: seo.published });
-    if (seo.modified) meta.push({ property: "article:modified_time", content: seo.modified });
-    for (const author of seo.authors ?? []) meta.push({ property: "article:author", content: author });
-    for (const tag of seo.tags ?? []) meta.push({ property: "article:tag", content: tag });
-    if (seo.section) meta.push({ property: "article:section", content: seo.section });
+    if (seo.published)
+      meta.push({ property: "article:published_time", content: seo.published });
+    if (seo.modified)
+      meta.push({ property: "article:modified_time", content: seo.modified });
+    for (const author of seo.authors ?? [])
+      meta.push({ property: "article:author", content: author });
+    for (const tag of seo.tags ?? [])
+      meta.push({ property: "article:tag", content: tag });
+    if (seo.section)
+      meta.push({ property: "article:section", content: seo.section });
 
-    meta.push({ name: "twitter:card", content: imageUrl ? "summary_large_image" : "summary" });
-    if (site.twitterSite) meta.push({ name: "twitter:site", content: site.twitterSite });
-    if (site.twitterCreator) meta.push({ name: "twitter:creator", content: site.twitterCreator });
+    meta.push({
+      name: "twitter:card",
+      content: imageUrl ? "summary_large_image" : "summary",
+    });
+    if (site.twitterSite)
+      meta.push({ name: "twitter:site", content: site.twitterSite });
+    if (site.twitterCreator)
+      meta.push({ name: "twitter:creator", content: site.twitterCreator });
     meta.push(
       { name: "twitter:title", content: socialTitle },
-      { name: "twitter:description", content: seo.twitterDescription ?? socialDescription },
+      {
+        name: "twitter:description",
+        content: seo.twitterDescription ?? socialDescription,
+      },
     );
     if (imageUrl) {
       meta.push({ name: "twitter:image", content: imageUrl });
-      if (image?.alt) meta.push({ name: "twitter:image:alt", content: image.alt });
+      if (image?.alt)
+        meta.push({ name: "twitter:image:alt", content: image.alt });
     }
     const pageKeys = new Set((seo.meta ?? []).map(metaKey));
-    meta.push(...(site.meta ?? []).filter((tag) => !pageKeys.has(metaKey(tag))));
+    meta.push(
+      ...(site.meta ?? []).filter((tag) => !pageKeys.has(metaKey(tag))),
+    );
     meta.push(...(seo.meta ?? []));
 
     const links: HeadLink[] =
-      seo.canonical === false ? [] : [{ rel: "canonical", href: seo.canonical ? absoluteUrl(seo.canonical) : url }];
+      seo.canonical === false
+        ? []
+        : [
+            {
+              rel: "canonical",
+              href: seo.canonical ? absoluteUrl(seo.canonical) : url,
+            },
+          ];
     for (const alternate of seo.alternates ?? []) {
-      links.push({ rel: "alternate", ...alternate, href: absoluteUrl(alternate.href) });
+      links.push({
+        rel: "alternate",
+        ...alternate,
+        href: absoluteUrl(alternate.href),
+      });
     }
     for (const author of site.authors ?? []) {
-      if (author.url) links.push({ rel: "author", href: absoluteUrl(author.url) });
+      if (author.url)
+        links.push({ rel: "author", href: absoluteUrl(author.url) });
     }
     links.push(...(seo.links ?? []));
-    return seo.jsonLd ? { meta, links, scripts: [jsonLdScript(seo.jsonLd)] } : { meta, links };
+    return seo.jsonLd
+      ? { meta, links, scripts: [jsonLdScript(seo.jsonLd)] }
+      : { meta, links };
   };
 
   return { pageHead, absoluteUrl };

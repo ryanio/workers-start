@@ -49,9 +49,17 @@ export function quality(
     let specificity = -1;
     if (range.type === type && range.subtype === subtype) {
       specificity = 2;
-    } else if (!options.exactOnly && range.type === type && range.subtype === "*") {
+    } else if (
+      !options.exactOnly &&
+      range.type === type &&
+      range.subtype === "*"
+    ) {
       specificity = 1;
-    } else if (!options.exactOnly && range.type === "*" && range.subtype === "*") {
+    } else if (
+      !options.exactOnly &&
+      range.type === "*" &&
+      range.subtype === "*"
+    ) {
       specificity = 0;
     }
     if (specificity > best) {

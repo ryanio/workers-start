@@ -27,7 +27,13 @@ const ENV_FILE = /^(\.env(\..+)?|\.dev\.vars(\..+)?)$/;
 const NOT_SECRETS = /\.(example|sample|template|tpl)$/;
 const KEY = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$/;
 const INLINE_COMMENT = /\s+#.*$/;
-const ESCAPES: Record<string, string> = { n: "\n", r: "\r", t: "\t", '"': '"', "\\": "\\" };
+const ESCAPES: Record<string, string> = {
+  n: "\n",
+  r: "\r",
+  t: "\t",
+  '"': '"',
+  "\\": "\\",
+};
 
 /**
  * KEY=value pairs from a dotenv file, parsed the way dotenv does: `#`
@@ -54,7 +60,12 @@ export function parseEnvFile(source: string): [string, string][] {
       }
       const end = closingQuoteIndex(body, quote);
       raw = end === -1 ? body : body.slice(0, end);
-      pairs.push([key, quote === '"' ? raw.replace(/\\(.)/g, (m, c: string) => ESCAPES[c] ?? m) : raw]);
+      pairs.push([
+        key,
+        quote === '"'
+          ? raw.replace(/\\(.)/g, (m, c: string) => ESCAPES[c] ?? m)
+          : raw,
+      ]);
     } else {
       pairs.push([key, raw.replace(INLINE_COMMENT, "").trim()]);
     }
@@ -97,14 +108,21 @@ export interface LeakOptions {
 }
 
 /** The env keys whose values appear, in any encoding, in any of the given file contents. */
-export function leakedKeys(pairs: [string, string][], contents: string[], options: LeakOptions = {}): string[] {
+export function leakedKeys(
+  pairs: [string, string][],
+  contents: string[],
+  options: LeakOptions = {},
+): string[] {
   const publicPrefixes = options.publicPrefixes ?? DEFAULT_PUBLIC_PREFIXES;
   const leaked = new Set<string>();
   for (const [key, value] of pairs) {
     if (value.length < MIN_SECRET_LENGTH || value.startsWith("op://")) {
       continue;
     }
-    if (options.allow?.includes(key) || publicPrefixes.some((prefix) => key.startsWith(prefix))) {
+    if (
+      options.allow?.includes(key) ||
+      publicPrefixes.some((prefix) => key.startsWith(prefix))
+    ) {
       continue;
     }
     const forms = encodings(value);
@@ -116,7 +134,9 @@ export function leakedKeys(pairs: [string, string][], contents: string[], option
 }
 
 /** Every KEY=value pair in the local env files of one or more directories. */
-export function localEnvPairs(dirs: string | readonly string[]): [string, string][] {
+export function localEnvPairs(
+  dirs: string | readonly string[],
+): [string, string][] {
   return (typeof dirs === "string" ? [dirs] : dirs).flatMap((dir) =>
     readdirSync(dir)
       .filter((name) => ENV_FILE.test(name) && !NOT_SECRETS.test(name))
@@ -129,7 +149,10 @@ export function localEnvPairs(dirs: string | readonly string[]): [string, string
  * walk never loops or leaves the directory. `skip` holds paths relative to
  * `dir`, with forward slashes.
  */
-export function listFiles(dir: string, skip: readonly string[] = DEFAULT_SKIP): string[] {
+export function listFiles(
+  dir: string,
+  skip: readonly string[] = DEFAULT_SKIP,
+): string[] {
   const files: string[] = [];
   const walk = (current: string): void => {
     for (const name of readdirSync(current)) {
@@ -140,7 +163,10 @@ export function listFiles(dir: string, skip: readonly string[] = DEFAULT_SKIP): 
       }
       if (stat.isDirectory()) {
         walk(path);
-      } else if (stat.isFile() && !skip.includes(relative(dir, path).split(sep).join("/"))) {
+      } else if (
+        stat.isFile() &&
+        !skip.includes(relative(dir, path).split(sep).join("/"))
+      ) {
         files.push(path);
       }
     }
@@ -154,7 +180,8 @@ export function readBuilt(path: string): string {
   const bytes = readFileSync(path);
   try {
     if (path.endsWith(".gz")) return gunzipSync(bytes).toString("latin1");
-    if (path.endsWith(".br")) return brotliDecompressSync(bytes).toString("latin1");
+    if (path.endsWith(".br"))
+      return brotliDecompressSync(bytes).toString("latin1");
   } catch {
     // Not really compressed; scan the bytes as they are.
   }
@@ -192,7 +219,9 @@ export function checkBundle(
     }
   }
   const pairs = localEnvPairs(envDirs);
-  const files = dirs.flatMap((dir) => listFiles(dir, options.skip ?? DEFAULT_SKIP));
+  const files = dirs.flatMap((dir) =>
+    listFiles(dir, options.skip ?? DEFAULT_SKIP),
+  );
   const leaked = leakedKeys(pairs, files.map(readBuilt), options);
   return { envValues: pairs.length, files: files.length, leaked };
 }

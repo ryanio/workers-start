@@ -31,7 +31,9 @@ import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
 import { createEntry } from "workers-start/entry";
 import { renderMarkdown } from "./markdown";
 
-export default createServerEntry(createEntry({ handler, markdown: renderMarkdown }));
+export default createServerEntry(
+  createEntry({ handler, markdown: renderMarkdown }),
+);
 ```
 
 Point `main` in `wrangler.jsonc` at this file (`"main": "./src/server.ts"`). Pointing it at `@tanstack/react-start/server-entry` skips your entry without an error.
@@ -73,7 +75,8 @@ export const { pageHead } = createPageHead({
 
 // src/routes/about.tsx
 export const Route = createFileRoute("/about")({
-  head: () => pageHead({ title: "About", description: "Who we are.", path: "/about" }),
+  head: () =>
+    pageHead({ title: "About", description: "Who we are.", path: "/about" }),
   component: About,
 });
 ```
@@ -93,7 +96,12 @@ Two tags with the same name, like the light and dark `theme-color`, can't go thr
 `workers-start/workers` reaches `cloudflare:workers` lazily, so the same module works in the Worker, in vitest and in the client bundle.
 
 ```ts
-import { afterResponse, getBinding, getEnvString, isKvNamespace } from "workers-start/workers";
+import {
+  afterResponse,
+  getBinding,
+  getEnvString,
+  isKvNamespace,
+} from "workers-start/workers";
 
 const kv = await getBinding("CACHE_KV", isKvNamespace); // null outside workerd
 const key = await getEnvString("API_KEY"); // Worker env, then process.env
@@ -122,15 +130,6 @@ Run it between the build and the deploy:
 It reads every value in your local `.env*` and `.dev.vars*` files (not `.example` or `.tpl` templates, and not `op://` references) and fails if any of them appears in a built file. It parses dotenv the way dotenv does, and searches for each value raw, URL-encoded, JSON-escaped and base64-encoded, inside `.gz` and `.br` files too. Symlinks are skipped. `VITE_*` keys are public by design and ignored.
 
 It skips `server/.dev.vars` inside the build directory, which wrangler never uploads. Flags: `--dist <dir>` (repeatable; default `dist`, `out` for a static site), `--root <dir>` (the base the other paths resolve against), `--env-dir <dir>` (repeatable; where the env files are, default `--root`; in a monorepo package, `--env-dir . --env-dir ../..` reads the package's and the root's), `--skip <path inside the build>`, `--allow <KEY>` for another public value, `--public-prefix <PREFIX>` for a whole family of them (for example `NEXT_PUBLIC_` in an app that kept its Next.js variable names).
-
-## Biome preset
-
-```jsonc
-// biome.jsonc
-{ "extends": ["workers-start/biome"] }
-```
-
-Biome's recommended rules plus `useTopLevelRegex`, Tailwind directives in CSS, and sorted imports and JSX attributes. It turns `noDangerouslySetInnerHtml` off everywhere, because the inline scripts above need it. Biome 2.6 or later.
 
 ## License
 

@@ -76,7 +76,9 @@ export function analyticsScript(options: AnalyticsScriptOptions): string {
   }
   const id = inlineJson(options.measurementId);
   const hosts = inlineJson(options.hosts.map((h) => h.toLowerCase()));
-  const checks = [`if(${hosts}.indexOf(location.hostname.toLowerCase())===-1)return;`];
+  const checks = [
+    `if(${hosts}.indexOf(location.hostname.toLowerCase())===-1)return;`,
+  ];
   if (options.skipPaths?.length) {
     checks.push(
       `var p=location.pathname;if(${inlineJson(options.skipPaths)}.some(function(s){return p===s||p.indexOf(s.replace(/\\/$/,"")+"/")===0}))return;`,
@@ -84,7 +86,9 @@ export function analyticsScript(options: AnalyticsScriptOptions): string {
   }
   if (options.consentCookie) {
     const pair =
-      options.consentCookie.value === undefined ? null : `${options.consentCookie.name}=${options.consentCookie.value}`;
+      options.consentCookie.value === undefined
+        ? null
+        : `${options.consentCookie.name}=${options.consentCookie.value}`;
     checks.push(
       `var k=document.cookie.split(/;\\s*/);if(!k.some(function(c){return ${pair === null ? `c.split("=")[0]===${inlineJson(options.consentCookie.name)}` : `c===${inlineJson(pair)}`}}))return;`,
     );
