@@ -29,6 +29,8 @@ npm test        # build, then tests
 npm pack        # builds dist/ and writes the tarball
 ```
 
+`npm install` points `core.hooksPath` at `.githooks/`. The pre-commit hook runs `biome check` on the staged files and `vitest related` on the staged sources; a staged vitest config or `package-lock.json` runs the full suite. Its output is in `/tmp/workers-start-pre-commit-output.txt`.
+
 ## Releases
 
 A release is a version bump on main. `.github/workflows/release.yml` runs on every push that changes `package.json`: when that version is not on npm, it runs the gate, publishes through npm trusted publishing (GitHub environment `npm`, no token anywhere, provenance attached), tags the commit `v<version>` and opens a GitHub release from the version's CHANGELOG section.
@@ -40,4 +42,4 @@ Never tag by hand or run `npm publish` locally.
 
 ## Shared with workers-jobs
 
-`.github/workflows/release.yml`, `.github/workflows/ci.yml`, `biome.json` and `.gitignore` are byte-identical with [`workers-jobs`](https://github.com/ryanio/workers-jobs) (`~/dev/workers-jobs`). Change them in both repos in the same sitting and check with `cmp`. `release.yml` reads the package name from `package.json`, so it needs no edits to move between them.
+`.github/workflows/release.yml`, `.github/workflows/ci.yml`, `.githooks/pre-commit`, `biome.json` and `.gitignore` are byte-identical with [`workers-jobs`](https://github.com/ryanio/workers-jobs) (`~/dev/workers-jobs`). Change them in both repos in the same sitting and check with `cmp`. `release.yml` reads the package name from `package.json`, so it needs no edits to move between them.
