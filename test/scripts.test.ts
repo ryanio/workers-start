@@ -1,22 +1,39 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { analyticsScript, themeScript } from "../src/scripts.js";
+import { analyticsScript, inlineJson, themeScript } from "../src/scripts.js";
 
-function run(script: string, opts: { stored?: string | null; hostname?: string }) {
+interface Page {
+  stored?: string | null;
+  hostname?: string;
+  pathname?: string;
+  cookie?: string;
+  systemDark?: boolean;
+}
+
+function run(script: string, page: Page) {
   const attributes: Record<string, string> = {};
+  const classes = new Set<string>(["light"]);
   const appended: string[] = [];
-  const window: { dataLayer?: unknown[]; gtag?: unknown } = {};
+  const window: { dataLayer?: unknown[]; gtag?: unknown; matchMedia?: unknown } = {
+    matchMedia: () => ({ matches: page.systemDark ?? false }),
+  };
   runInNewContext(script, {
-    localStorage: { getItem: () => opts.stored ?? null },
-    location: { hostname: opts.hostname ?? "localhost" },
+    localStorage: { getItem: () => page.stored ?? null },
+    location: { hostname: page.hostname ?? "localhost", pathname: page.pathname ?? "/" },
     window,
     document: {
-      documentElement: { setAttribute: (k: string, v: string) => (attributes[k] = v) },
+      cookie: page.cookie ?? "",
+      documentElement: {
+        setAttribute: (k: string, v: string) => {
+          attributes[k] = v;
+        },
+        classList: { add: (c: string) => classes.add(c), remove: (c: string) => classes.delete(c) },
+      },
       createElement: () => ({}),
       head: { appendChild: (el: { src: string }) => appended.push(el.src) },
     },
   });
-  return { attributes, appended, window };
+  return { attributes, classes: [...classes], appended, window };
 }
 
 describe("themeScript", () => {
@@ -25,20 +42,52 @@ describe("themeScript", () => {
     expect(run(themeScript(), { stored: "purple" }).attributes).toEqual({});
     expect(run(themeScript(), { stored: null }).attributes).toEqual({});
   });
+
+  it("can set a class and follow the system with nothing stored", () => {
+    const script = themeScript({ target: { class: true }, followSystem: true, storageKey: "mode" });
+    expect(run(script, { stored: null, systemDark: true }).classes).toEqual(["dark"]);
+    expect(run(script, { stored: "light", systemDark: true }).classes).toEqual(["light"]);
+  });
+
+  it("cannot be broken out of with a crafted value", () => {
+    const script = themeScript({ values: ["light", "</script><script>alert(1)</script>"] });
+    expect(script).not.toContain("</script>");
+  });
 });
 
 describe("analyticsScript", () => {
-  const script = analyticsScript({ measurementId: "G-ABC123", hosts: ["example.com"] });
+  const script = analyticsScript({ measurementId: "G-ABC123", hosts: ["Example.com"] });
+  const gtag = ["https://www.googletagmanager.com/gtag/js?id=G-ABC123"];
 
-  it("loads gtag only on a production host", () => {
-    expect(run(script, { hostname: "example.com" }).appended).toEqual([
-      "https://www.googletagmanager.com/gtag/js?id=G-ABC123",
-    ]);
+  it("loads gtag only on a production host, ignoring case", () => {
+    expect(run(script, { hostname: "example.com" }).appended).toEqual(gtag);
     expect(run(script, { hostname: "localhost" }).appended).toEqual([]);
     expect(run(script, { hostname: "preview.example.workers.dev" }).window.dataLayer).toBeUndefined();
   });
 
-  it("rejects anything that is not a GA4 id, since it is inlined into a script", () => {
+  it("skips listed paths and waits for consent", () => {
+    const gated = analyticsScript({
+      measurementId: "G-ABC123",
+      hosts: ["example.com"],
+      skipPaths: ["/admin"],
+      consentCookie: { name: "consent", value: "yes" },
+    });
+    const on = { hostname: "example.com", cookie: "a=1; consent=yes" };
+    expect(run(gated, on).appended).toEqual(gtag);
+    expect(run(gated, { ...on, pathname: "/admin/users" }).appended).toEqual([]);
+    expect(run(gated, { ...on, pathname: "/administer" }).appended).toEqual(gtag);
+    expect(run(gated, { ...on, cookie: "consent=no" }).appended).toEqual([]);
+  });
+
+  it("rejects anything that is not a GA4 id and escapes hosts", () => {
     expect(() => analyticsScript({ measurementId: "G-1');alert(1)//", hosts: [] })).toThrow();
+    const hostile = analyticsScript({ measurementId: "G-A1", hosts: ["</script><img src=x onerror=alert(1)>"] });
+    expect(hostile).not.toContain("</script>");
+  });
+});
+
+describe("inlineJson", () => {
+  it("escapes characters that end a script or a line", () => {
+    expect(inlineJson("</script>\u2028")).toBe('"\\u003c/script>\\u2028"');
   });
 });

@@ -1,6 +1,11 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineEnding": "lf", "lineWidth": 80 },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 80
+  },
   "javascript": {
     "formatter": {
       "arrowParentheses": "always",
@@ -10,20 +15,33 @@
       "trailingCommas": "es5"
     }
   },
-  "json": { "formatter": { "trailingCommas": "none" } },
-  "css": { "parser": { "tailwindDirectives": true } },
-  "assist": { "actions": { "source": { "organizeImports": "on", "useSortedAttributes": "on" } } },
+  "json": {
+    "formatter": {
+      "trailingCommas": "none"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedAttributes": "on"
+      }
+    }
+  },
   "linter": {
     "rules": {
       "preset": "recommended",
-      "security": { "noDangerouslySetInnerHtml": "off" },
-      "performance": { "useTopLevelRegex": "error" }
+      "security": {
+        "noDangerouslySetInnerHtml": "off"
+      },
+      "performance": {
+        "useTopLevelRegex": "error"
+      }
     }
-  },
-  "overrides": [
-    {
-      "includes": ["**/src/routes/**"],
-      "linter": { "rules": { "style": { "useFilenamingConvention": "off" } } }
-    }
-  ]
+  }
 }

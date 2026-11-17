@@ -1,6 +1,6 @@
 {
   "name": "workers-start",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "The parts every TanStack Start app on Cloudflare Workers ends up writing: Markdown for agents on the same URL, a head helper that stops share cards leaking between pages, lazy Workers bindings, and a check that no local secret ships in the build.",
   "license": "MIT",
   "author": "Ryan Ghods",
@@ -23,29 +23,41 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./entry": {
       "types": "./dist/entry.d.ts",
-      "import": "./dist/entry.js"
+      "import": "./dist/entry.js",
+      "default": "./dist/entry.js"
     },
     "./head": {
       "types": "./dist/head.d.ts",
-      "import": "./dist/head.js"
+      "import": "./dist/head.js",
+      "default": "./dist/head.js"
     },
     "./workers": {
       "types": "./dist/workers.d.ts",
-      "import": "./dist/workers.js"
+      "import": "./dist/workers.js",
+      "default": "./dist/workers.js"
     },
     "./scripts": {
       "types": "./dist/scripts.d.ts",
-      "import": "./dist/scripts.js"
+      "import": "./dist/scripts.js",
+      "default": "./dist/scripts.js"
     },
     "./check-bundle": {
       "types": "./dist/check-bundle.d.ts",
-      "import": "./dist/check-bundle.js"
+      "import": "./dist/check-bundle.js",
+      "default": "./dist/check-bundle.js"
     },
-    "./biome": "./biome.preset.json"
+    "./biome": "./biome.preset.json",
+    "./accept": {
+      "types": "./dist/accept.d.ts",
+      "import": "./dist/accept.js",
+      "default": "./dist/accept.js"
+    },
+    "./package.json": "./package.json"
   },
   "bin": {
     "workers-start-check-bundle": "dist/check-bundle-cli.js"
@@ -59,7 +71,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/check-bundle-cli.js",

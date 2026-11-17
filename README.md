@@ -38,15 +38,22 @@ Point `main` in `wrangler.jsonc` at this file (`"main": "./src/server.ts"`). Poi
 
 What it does to each request:
 
-| Request                                           | Response                                                                                                                                                        |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Page, `Accept: text/markdown`                     | Your `markdown(path)` result as `text/markdown`, with `Vary: Accept` and `X-Robots-Tag: noindex`. Return a string, `{ body, status }`, or `null` to serve HTML. |
-| Page, Accept names neither HTML nor `*/*`         | HTML, not 406                                                                                                                                                   |
-| Any HTML page                                     | `Vary: Accept` added                                                                                                                                            |
-| Non-GET/HEAD under `/api/`                        | 405 with `Allow: GET, HEAD`                                                                                                                                     |
-| API routes, files with an extension, `/_…`, `/@…` | Passed through untouched                                                                                                                                        |
+| Request                                                            | Response                                                                                                                                                                                          |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page, Accept prefers `text/markdown`                               | Your `markdown(path)` result as `text/markdown` with `X-Robots-Tag: noindex`. Return a string, `{ body, status }`, or `null` to serve HTML. If it throws, the error is logged and HTML is served. |
+| Page, Accept rules out HTML                                        | HTML, not 406                                                                                                                                                                                     |
+| Any page, with `markdown` set                                      | `Vary: Accept`, merged into any `Vary` already there, on HTML, redirects and Markdown alike                                                                                                       |
+| OPTIONS under `/api`                                               | 204 with `Allow: GET, HEAD, OPTIONS`                                                                                                                                                              |
+| Anything but GET, HEAD or OPTIONS under `/api`                     | 405 with the same `Allow`                                                                                                                                                                         |
+| Other API requests, files with an extension, `/_…`, Vite dev paths | Passed through untouched                                                                                                                                                                          |
 
-`readOnlyPrefixes` and `isPage` change which paths count as API and which as pages.
+Details that matter when you compare against production:
+
+- Accept is parsed with q-values. Markdown is served only when the client names `text/markdown` with q > 0 and rates it at least as high as HTML, so `text/markdown;q=0` and `*/*` both get HTML.
+- Paths are decoded, repeated slashes collapsed and trailing slashes dropped before any test, and prefixes match whole segments ignoring case. `/API/x`, `/%61pi/x` and `//api//x` all count as `/api`; `/apiary` does not. `markdown()` receives that normalized path, so `/learn/caf%C3%A9/` arrives as `/learn/café`.
+- A page is any path whose last segment has no file extension like `.js`, `.xml` or `.txt`. A dotted slug such as `/blog/node.js-tips` is still a page.
+- `readOnlyPrefixes` (default `["/api"]`, `[]` to turn off) and `isPage` change those rules. An API that accepts writes, or that needs CORS headers on preflight, should pass `readOnlyPrefixes: []` and answer those methods itself.
+- Static assets are served before the Worker runs. On a prerendered site, or a static site on Pages, none of this applies to the prerendered pages unless `assets.run_worker_first` sends them through the Worker.
 
 ## Head tags
 
@@ -70,7 +77,9 @@ export const Route = createFileRoute("/about")({
 });
 ```
 
-It returns the title, description, canonical link, Open Graph tags and Twitter tags. `type: "article"` with `published` and `modified` adds the article dates. `noindex: true` adds a robots tag.
+It returns the title, description, canonical link, Open Graph tags and Twitter tags. Optional fields add the rest: `image` as a path or `{ url, width, height, alt, type }`; `type: "article"` with `published`, `modified`, `authors` and `tags`; `keywords`; `robots` (or `noindex: true`); `canonical` to override it or `false` to drop it; and `meta` for anything else, such as an App Store banner. The site config takes `twitterSite` and `twitterCreator`.
+
+Call `pageHead` from leaf routes only. The router keeps one meta per name with the deepest route winning, so a tag a leaf leaves out falls back to its parent's, and it concatenates links, so a canonical from a layout and a leaf would appear twice.
 
 Two tags with the same name, like the light and dark `theme-color`, can't go through `head()`, because the router keeps only one. Write them straight into the root document.
 
@@ -86,14 +95,16 @@ const key = await getEnvString("API_KEY"); // Worker env, then process.env
 await afterResponse(refreshCache()); // waitUntil in workerd, awaited elsewhere
 ```
 
-In tests, `setWorkersModule({ env, waitUntil })` stands in for the runtime.
+In tests, `setWorkersModule({ env, waitUntil })` stands in for the runtime. Under `@cloudflare/vitest-pool-workers` the real module loads. Outside workerd, a failure in `afterResponse` work is logged rather than thrown, as `waitUntil` would.
 
 ## Inline scripts
 
 `workers-start/scripts` returns strings for `dangerouslySetInnerHTML` in the root document.
 
-- `themeScript()` applies a stored `light` or `dark` choice before first paint. With nothing stored it does nothing, and `color-scheme: light dark` follows the OS.
-- `analyticsScript({ measurementId, hosts })` loads GA4 only on the listed hostnames, so local dev and preview deploys never report.
+- `themeScript()` applies a stored `light` or `dark` choice before first paint, as a `data-theme` attribute by default or as a class with `target: { class: true }`. With nothing stored it does nothing, and `color-scheme: light dark` follows the OS; `followSystem: true` applies the OS choice instead, for CSS keyed off the class.
+- `analyticsScript({ measurementId, hosts })` loads GA4 only on the listed hostnames, so local dev and preview deploys never report. `skipPaths` keeps it off paths like `/admin`, and `consentCookie` waits for a consent cookie.
+
+Every value is embedded with `inlineJson`, which escapes `<`, so no option can close the script tag.
 
 ## Secret check
 
@@ -103,7 +114,9 @@ Run it between the build and the deploy:
 "deploy": "vite build && workers-start-check-bundle && wrangler deploy"
 ```
 
-It reads every value in your local `.env*` and `.dev.vars*` files and fails if any of them appears in a built file. It skips `dist/server/.dev.vars`, which wrangler never uploads. Flags: `--dist <dir>` (default `dist`; `out` for a static site), `--root <dir>`, `--skip <filename>`.
+It reads every value in your local `.env*` and `.dev.vars*` files (not `.example` or `.tpl` templates, and not `op://` references) and fails if any of them appears in a built file. It parses dotenv the way dotenv does, and searches for each value raw, URL-encoded, JSON-escaped and base64-encoded, inside `.gz` and `.br` files too. Symlinks are skipped. `VITE_*` keys are public by design and ignored.
+
+It skips `server/.dev.vars` inside the build directory, which wrangler never uploads. Flags: `--dist <dir>` (repeatable; default `dist`, `out` for a static site), `--root <dir>`, `--skip <path inside the build>`, `--allow <KEY>` for another public value.
 
 ## Biome preset
 
@@ -112,7 +125,7 @@ It reads every value in your local `.env*` and `.dev.vars*` files and fails if a
 { "extends": ["workers-start/biome"] }
 ```
 
-Biome's recommended rules, Tailwind directives in CSS, sorted imports and JSX attributes, and file-name rules off under `src/routes`, where names like `$slug.tsx` and `robots[.]txt.ts` are routing syntax.
+Biome's recommended rules plus `useTopLevelRegex`, Tailwind directives in CSS, and sorted imports and JSX attributes. It turns `noDangerouslySetInnerHtml` off everywhere, because the inline scripts above need it. Biome 2.6 or later.
 
 ## License
 

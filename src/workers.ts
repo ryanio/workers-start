@@ -3,9 +3,11 @@
  * that also runs in vitest, Node scripts and the client bundle.
  *
  * The module is imported through a variable specifier, so neither Vite nor
- * vitest tries to resolve it, and only on first use. Outside workerd the
- * import fails and every helper here degrades: bindings are null, env reads
- * fall back to `process.env`, and `afterResponse` awaits the work in place.
+ * vitest tries to resolve it, and only on first use. Outside workerd (Node,
+ * vitest in Node, the browser) the import fails and every helper here
+ * degrades: bindings are null, env reads fall back to `process.env`, and
+ * `afterResponse` awaits the work in place. Inside workerd, including
+ * `@cloudflare/vitest-pool-workers`, the real bindings are used.
  */
 
 export interface WorkersModule {
@@ -22,18 +24,10 @@ function processEnv(): Record<string, string | undefined> {
   return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 }
 
-function isTestRuntime(): boolean {
-  const env = processEnv();
-  return Boolean(env.VITEST) || env.NODE_ENV === "test";
-}
-
 /** The `cloudflare:workers` module, or null outside workerd. */
 export function loadWorkers(): Promise<WorkersModule | null> {
   if (override !== undefined) {
     return Promise.resolve(override);
-  }
-  if (isTestRuntime()) {
-    return Promise.resolve(null);
   }
   if (!modulePromise) {
     modulePromise = import(/* @vite-ignore */ WORKERS_MODULE)
@@ -85,10 +79,16 @@ export async function afterResponse(work: Promise<unknown>): Promise<void> {
     mod.waitUntil(work);
     return;
   }
-  await work;
+  // Same contract as waitUntil: a background failure is logged, never thrown
+  // into the request that started it.
+  try {
+    await work;
+  } catch (error) {
+    console.error("workers-start: background work failed", error);
+  }
 }
 
-/** True for anything with KV's `get` and `put`. Use as a `getBinding` guard. */
+/** True for a KV namespace (it has `getWithMetadata`, which R2 buckets do not). Use as a `getBinding` guard. */
 export function isKvNamespace(value: unknown): value is {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
@@ -96,6 +96,10 @@ export function isKvNamespace(value: unknown): value is {
   if (typeof value !== "object" || value === null) {
     return false;
   }
-  const candidate = value as { get?: unknown; put?: unknown };
-  return typeof candidate.get === "function" && typeof candidate.put === "function";
+  const candidate = value as { get?: unknown; put?: unknown; getWithMetadata?: unknown };
+  return (
+    typeof candidate.get === "function" &&
+    typeof candidate.put === "function" &&
+    typeof candidate.getWithMetadata === "function"
+  );
 }
