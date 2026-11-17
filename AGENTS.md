@@ -38,3 +38,7 @@ A release is a version bump on main. `.github/workflows/release.yml` runs on eve
 2. Run `npm run check`, commit both and push to main.
 
 Never tag by hand or run `npm publish` locally.
+
+## Shared with workers-jobs
+
+`.github/workflows/release.yml`, `.github/workflows/ci.yml`, `biome.json` and `.gitignore` are byte-identical with [`workers-jobs`](https://github.com/ryanio/workers-jobs) (`~/dev/workers-jobs`). Change them in both repos in the same sitting and check with `cmp`. `release.yml` reads the package name from `package.json`, so it needs no edits to move between them.
