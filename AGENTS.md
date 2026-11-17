@@ -32,8 +32,9 @@ npm pack        # builds dist/ and writes the tarball
 
 ## Releases
 
-Releases publish from GitHub Actions through npm trusted publishing (`.github/workflows/release.yml`, GitHub environment `npm`). There is no npm token anywhere.
+A release is a version bump on main. `.github/workflows/release.yml` runs on every push that changes `package.json`: when that version is not on npm, it runs the gate, publishes through npm trusted publishing (GitHub environment `npm`, no token anywhere, provenance attached), tags the commit `v<version>` and opens a GitHub release from the version's CHANGELOG section.
 
-1. Bump `version` in `package.json` and add a dated section to `CHANGELOG.md`.
-2. Run `npm run check`, commit and push to main.
-3. Tag and push: `git tag v<version> && git push origin v<version>`. The workflow checks the tag against `package.json`, runs the gate and publishes with provenance.
+1. Bump `version` in `package.json` and add a dated `## <version> (YYYY-MM-DD)` section to `CHANGELOG.md`.
+2. Run `npm run check`, commit both and push to main.
+
+Never tag by hand or run `npm publish` locally.

@@ -1,19 +1,26 @@
 name: Release
 
-# Publishes to npm when a version tag is pushed. npm trusts this workflow
-# through OIDC (trusted publishing), so there is no npm token, and the
-# registry adds a provenance statement to every version it accepts.
+# A push to main that changes package.json releases its version, when that
+# version is not on npm yet: the gate runs, npm publishes through trusted
+# publishing (OIDC, no token, with a provenance statement), and the workflow
+# tags the commit and opens a GitHub release from the CHANGELOG section.
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
@@ -24,15 +31,31 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
-      - run: npm ci
-      - run: npm run check
-      - name: Tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - name: Publish unless this version is already on npm
+      - name: Is this version new?
+        id: version
         run: |
+          name=$(node -p 'require("./package.json").name')
           version=$(node -p 'require("./package.json").version')
-          if npm view "workers-start@$version" version >/dev/null 2>&1; then
-            echo "workers-start@$version is already published"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "$name@$version" version --prefer-online >/dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "$name@$version is already on npm"
           else
-            npm publish
+            echo "new=true" >> "$GITHUB_OUTPUT"
           fi
+      - if: steps.version.outputs.new == 'true'
+        run: npm ci
+      - if: steps.version.outputs.new == 'true'
+        run: npm run check
+      - if: steps.version.outputs.new == 'true'
+        run: npm publish
+      - name: Tag and GitHub release
+        if: steps.version.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## "v" " {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          git tag "v$VERSION" "$GITHUB_SHA"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --title "v$VERSION" --notes-file notes.md --verify-tag
