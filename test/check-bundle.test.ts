@@ -113,6 +113,7 @@ describe("checkBundle", () => {
     const ok = (...args: string[]) =>
       execFileSync(process.execPath, [CLI, "--root", root, ...args], { encoding: "utf8" });
     expect(ok("--allow", "API_KEY")).toContain("ok");
+    expect(ok("--public-prefix", "API_")).toContain("ok");
     expect(ok("--skip", "server/chunk.js")).toContain("ok");
     mkdirSync(join(root, "out"));
     expect(ok("--dist", "out")).toContain("ok");

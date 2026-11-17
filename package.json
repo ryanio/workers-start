@@ -1,6 +1,6 @@
 {
   "name": "workers-start",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The parts every TanStack Start app on Cloudflare Workers ends up writing: Markdown for agents on the same URL, a head helper that stops share cards leaking between pages, lazy Workers bindings, and a check that no local secret ships in the build.",
   "license": "MIT",
   "author": "Ryan Ghods",

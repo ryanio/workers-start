@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2026-11-17)
+
+- Secret check: `--public-prefix <PREFIX>` marks a family of keys as public, such as `NEXT_PUBLIC_` in an app that kept its Next.js names.
+
 ## 0.2.0 (2026-11-17)
 
 Fixes from a review of 0.1. Several change responses, so compare an app against production after upgrading.
