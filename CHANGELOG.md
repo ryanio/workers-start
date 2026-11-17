@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (2026-11-17)
+
+Additions only. Output for existing options is unchanged.
+
+- Secret check: `--env-dir <dir>` (repeatable) reads env files from several directories, such as a package and its monorepo root. `checkBundle` and `localEnvPairs` take a directory or an array of them.
+- Head: site-wide `robots`, `keywords`, `authors` and `meta` defaults that a page can override, and `defaultImage` as an object with size, alt and type.
+- Head: `alternates` (hreflang or feed links), `links`, `section` (`article:section`) and `jsonLd`, which returns a `scripts` entry. `jsonLdScript` is exported for the root route.
+- Entry: the Markdown renderer gets `page.html()`, the page rendered through the handler as HTML, for renderers that convert the page.
+
 ## 0.2.1 (2026-11-17)
 
 - Secret check: `--public-prefix <PREFIX>` marks a family of keys as public, such as `NEXT_PUBLIC_` in an app that kept its Next.js names.

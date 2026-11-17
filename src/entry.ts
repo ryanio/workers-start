@@ -19,6 +19,12 @@ type MaybePromise<T> = T | Promise<T>;
 /** What a Markdown renderer returns: a body, a body with a status, or null to serve HTML. */
 export type MarkdownResult = string | { body: string; status?: number } | null | undefined;
 
+/** What the Markdown renderer can reach besides the path and request. */
+export interface MarkdownPage {
+  /** The page rendered by the handler with `Accept: text/html`, the extra fetch arguments passed through. */
+  html(): Promise<Response>;
+}
+
 export interface FetchHandler {
   // biome-ignore lint/suspicious/noExplicitAny: handlers pass framework-specific extra arguments through.
   fetch(request: Request, ...rest: any[]): MaybePromise<Response>;
@@ -31,9 +37,10 @@ export interface EntryOptions {
    * Markdown rendering of a page. Called for GET and HEAD page requests that
    * prefer text/markdown, with the decoded path, no trailing slash. Return
    * null to serve HTML instead. If it throws, the error is logged and HTML is
-   * served.
+   * served. `page.html()` renders the same request through the handler as
+   * HTML, for a renderer that converts the page instead of building it.
    */
-  markdown?: (path: string, request: Request) => MaybePromise<MarkdownResult>;
+  markdown?: (path: string, request: Request, page: MarkdownPage) => MaybePromise<MarkdownResult>;
   /**
    * Path prefixes that only accept GET, HEAD and OPTIONS. Matched by segment,
    * case-insensitively, after decoding: `/api` covers `/api`, `/api/x` and
@@ -131,6 +138,12 @@ function markdownResponse(result: Exclude<MarkdownResult, null | undefined>, hea
   return new Response(noBody ? null : body, { status, headers: MARKDOWN_HEADERS });
 }
 
+function withAcceptHtml(request: Request): Request {
+  const headers = new Headers(request.headers);
+  headers.set("accept", "text/html");
+  return new Request(request, { headers });
+}
+
 function withVaryAccept(response: Response): Response {
   const vary = mergeVary(response.headers.get("vary"), "Accept");
   if (vary === response.headers.get("vary")) {
@@ -172,7 +185,9 @@ export function createEntry(options: EntryOptions): {
 
       if (options.markdown && wantsMarkdown(request)) {
         try {
-          const result = await options.markdown(path, request);
+          const result = await options.markdown(path, request, {
+            html: async () => options.handler.fetch(withAcceptHtml(request), ...rest),
+          });
           if (result !== null && result !== undefined) {
             return markdownResponse(result, method === "HEAD");
           }
@@ -181,13 +196,7 @@ export function createEntry(options: EntryOptions): {
         }
       }
 
-      let pageRequest = request;
-      if (!acceptsHtml(request)) {
-        const headers = new Headers(request.headers);
-        headers.set("accept", "text/html");
-        pageRequest = new Request(request, { headers });
-      }
-
+      const pageRequest = acceptsHtml(request) ? request : withAcceptHtml(request);
       const response = await options.handler.fetch(pageRequest, ...rest);
       return options.markdown ? withVaryAccept(response) : response;
     },

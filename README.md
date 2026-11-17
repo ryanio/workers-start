@@ -53,6 +53,7 @@ Details that matter when you compare against production:
 - Paths are decoded, repeated slashes collapsed and trailing slashes dropped before any test, and prefixes match whole segments ignoring case. `/API/x`, `/%61pi/x` and `//api//x` all count as `/api`; `/apiary` does not. `markdown()` receives that normalized path, so `/learn/caf%C3%A9/` arrives as `/learn/café`.
 - A page is any path whose last segment has no file extension like `.js`, `.xml` or `.txt`. A dotted slug such as `/blog/node.js-tips` is still a page.
 - `readOnlyPrefixes` (default `["/api"]`, `[]` to turn off) and `isPage` change those rules. An API that accepts writes, or that needs CORS headers on preflight, should pass `readOnlyPrefixes: []` and answer those methods itself.
+- `markdown(path, request, page)` gets a third argument: `await page.html()` renders the same request through the handler as HTML (extra fetch arguments passed through), for a renderer that converts the page rather than building Markdown from data.
 - Static assets are served before the Worker runs. On a prerendered site, or a static site on Pages, none of this applies to the prerendered pages unless `assets.run_worker_first` sends them through the Worker.
 
 ## Head tags
@@ -77,7 +78,11 @@ export const Route = createFileRoute("/about")({
 });
 ```
 
-It returns the title, description, canonical link, Open Graph tags and Twitter tags. Optional fields add the rest: `image` as a path or `{ url, width, height, alt, type }`; `type: "article"` with `published`, `modified`, `authors` and `tags`; `keywords`; `robots` (or `noindex: true`); `canonical` to override it or `false` to drop it; and `meta` for anything else, such as an App Store banner. The site config takes `twitterSite` and `twitterCreator`.
+It returns the title, description, canonical link, Open Graph tags and Twitter tags. Optional fields add the rest: `image` as a path or `{ url, width, height, alt, type }`; `type: "article"` with `published`, `modified`, `authors` and `tags`; `keywords`; `robots` (or `noindex: true`); `canonical` to override it or `false` to drop it; `meta` for anything else; `alternates` for `rel="alternate"` links (`{ href, hreflang }` for a language version, `{ href, type, title }` for a feed); `links` for any other link; `section` for `article:section`; and `jsonLd` for schema.org data.
+
+The site config takes `twitterSite` and `twitterCreator`, a `defaultImage` as a path or an object, and defaults every page can override: `robots`, `keywords`, `authors` (`[{ name, url }]`, written as `author` meta and `rel="author"` links) and `meta` (a page tag with the same name or property replaces the site's).
+
+`jsonLd` takes one schema.org object or an array, which becomes an `@graph`, and adds `@context` when it is missing. It comes back as `scripts`, which TanStack Router's `head()` renders. The same serializer is exported as `jsonLdScript(data)` for the root route's `scripts`. Both escape `<`, `>` and `&`, so no value can close the script tag.
 
 Call `pageHead` from leaf routes only. The router keeps one meta per name with the deepest route winning, so a tag a leaf leaves out falls back to its parent's, and it concatenates links, so a canonical from a layout and a leaf would appear twice.
 
@@ -116,7 +121,7 @@ Run it between the build and the deploy:
 
 It reads every value in your local `.env*` and `.dev.vars*` files (not `.example` or `.tpl` templates, and not `op://` references) and fails if any of them appears in a built file. It parses dotenv the way dotenv does, and searches for each value raw, URL-encoded, JSON-escaped and base64-encoded, inside `.gz` and `.br` files too. Symlinks are skipped. `VITE_*` keys are public by design and ignored.
 
-It skips `server/.dev.vars` inside the build directory, which wrangler never uploads. Flags: `--dist <dir>` (repeatable; default `dist`, `out` for a static site), `--root <dir>`, `--skip <path inside the build>`, `--allow <KEY>` for another public value, `--public-prefix <PREFIX>` for a whole family of them (for example `NEXT_PUBLIC_` in an app that kept its Next.js variable names).
+It skips `server/.dev.vars` inside the build directory, which wrangler never uploads. Flags: `--dist <dir>` (repeatable; default `dist`, `out` for a static site), `--root <dir>` (the base the other paths resolve against), `--env-dir <dir>` (repeatable; where the env files are, default `--root`; in a monorepo package, `--env-dir . --env-dir ../..` reads the package's and the root's), `--skip <path inside the build>`, `--allow <KEY>` for another public value, `--public-prefix <PREFIX>` for a whole family of them (for example `NEXT_PUBLIC_` in an app that kept its Next.js variable names).
 
 ## Biome preset
 

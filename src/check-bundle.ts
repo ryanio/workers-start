@@ -115,11 +115,13 @@ export function leakedKeys(pairs: [string, string][], contents: string[], option
   return [...leaked].sort();
 }
 
-/** Every KEY=value pair in the local env files of `dir`. */
-export function localEnvPairs(dir: string): [string, string][] {
-  return readdirSync(dir)
-    .filter((name) => ENV_FILE.test(name) && !NOT_SECRETS.test(name))
-    .flatMap((name) => parseEnvFile(readFileSync(join(dir, name), "utf8")));
+/** Every KEY=value pair in the local env files of one or more directories. */
+export function localEnvPairs(dirs: string | readonly string[]): [string, string][] {
+  return (typeof dirs === "string" ? [dirs] : dirs).flatMap((dir) =>
+    readdirSync(dir)
+      .filter((name) => ENV_FILE.test(name) && !NOT_SECRETS.test(name))
+      .flatMap((name) => parseEnvFile(readFileSync(join(dir, name), "utf8"))),
+  );
 }
 
 /**
@@ -169,15 +171,27 @@ export interface CheckOptions extends LeakOptions {
   skip?: readonly string[];
 }
 
-/** Scan one or more build directories against the local env files in `root`. */
-export function checkBundle(root: string, dists: string | readonly string[], options: CheckOptions = {}): CheckResult {
+/**
+ * Scan one or more build directories against the local env files in one or
+ * more directories, such as a package and its monorepo root.
+ */
+export function checkBundle(
+  envDirs: string | readonly string[],
+  dists: string | readonly string[],
+  options: CheckOptions = {},
+): CheckResult {
   const dirs = typeof dists === "string" ? [dists] : dists;
   for (const dir of dirs) {
     if (!existsSync(dir)) {
       throw new Error(`${dir} does not exist. Build first.`);
     }
   }
-  const pairs = localEnvPairs(root);
+  for (const dir of typeof envDirs === "string" ? [envDirs] : envDirs) {
+    if (!existsSync(dir)) {
+      throw new Error(`Env directory ${dir} does not exist.`);
+    }
+  }
+  const pairs = localEnvPairs(envDirs);
   const files = dirs.flatMap((dir) => listFiles(dir, options.skip ?? DEFAULT_SKIP));
   const leaked = leakedKeys(pairs, files.map(readBuilt), options);
   return { envValues: pairs.length, files: files.length, leaked };

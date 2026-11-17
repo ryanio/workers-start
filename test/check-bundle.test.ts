@@ -103,6 +103,20 @@ describe("checkBundle", () => {
     expect(checkBundle(root, [dist(), join(root, "out")]).leaked).toEqual(["API_KEY"]);
   });
 
+  it("reads env files from several directories, such as a package and its monorepo root", () => {
+    const pkg = join(root, "packages", "web");
+    mkdirSync(join(pkg, "dist"), { recursive: true });
+    writeFileSync(join(pkg, ".env"), "LOCAL_ONLY=package_value_1234\n");
+    writeFileSync(join(pkg, ".env.tpl"), "PUBLIC_URL=https://example.com/app\n");
+    writeFileSync(join(pkg, "dist", "chunk.js"), `"https://example.com/app" "${SECRET}"`);
+    expect(checkBundle([pkg, root], join(pkg, "dist"))).toEqual({ envValues: 2, files: 1, leaked: ["API_KEY"] });
+    const cli = (...args: string[]) =>
+      execFileSync(process.execPath, [CLI, "--root", pkg, ...args], { stdio: "pipe", encoding: "utf8" });
+    expect(cli()).toContain("ok");
+    expect(() => cli("--env-dir", ".", "--env-dir", "../..")).toThrow(/API_KEY/);
+    expect(() => cli("--env-dir", "missing")).toThrow(/missing does not exist/);
+  });
+
   it("makes the CLI exit 1 on a leak, so a deploy chained after it stops", () => {
     writeFileSync(join(root, "dist", "server", "chunk.js"), SECRET);
     expect(() => execFileSync(process.execPath, [CLI, "--root", root], { stdio: "pipe" })).toThrow(/Refusing to ship/);

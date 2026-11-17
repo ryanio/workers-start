@@ -90,6 +90,29 @@ describe("Markdown negotiation", () => {
   });
 });
 
+describe("Markdown from rendered HTML", () => {
+  it("gives the renderer the page as HTML, with the extra fetch arguments", async () => {
+    const seen: unknown[] = [];
+    const handler = {
+      fetch(request: Request, env: unknown) {
+        seen.push(env);
+        return start.fetch(request);
+      },
+    };
+    const converting = createEntry({
+      handler,
+      markdown: async (_path, _request, page) => (await (await page.html()).text()).replace("<html>", "# "),
+    });
+    const res = await converting.fetch(
+      new Request("https://example.com/learn", { headers: { accept: "text/markdown" } }),
+      "env",
+    );
+    expect(await res.text()).toBe("# /learn</html>");
+    expect(start.calls[0]?.headers.get("accept")).toBe("text/html");
+    expect(seen).toEqual(["env"]);
+  });
+});
+
 describe("HTML pages", () => {
   it("serves HTML instead of 406 when Accept rules HTML out", async () => {
     const res = await send("/learn", "application/json");

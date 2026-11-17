@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createPageHead } from "../src/head.js";
+import { createPageHead, jsonLdScript } from "../src/head.js";
 
 const { pageHead, absoluteUrl } = createPageHead({
   url: "https://example.com/",
@@ -87,6 +87,110 @@ describe("pageHead", () => {
     });
     expect(content(bare, "twitter:card")?.content).toBe("summary");
     expect(content(bare, "og:image")).toBeUndefined();
+  });
+});
+
+describe("site defaults", () => {
+  const site = createPageHead({
+    url: "https://example.com",
+    name: "Example",
+    defaultImage: { url: "/og.png", width: 1200, height: 630, alt: "Example card" },
+    robots: "index, follow",
+    keywords: ["one", "two"],
+    authors: [{ name: "Ann", url: "https://x.com/ann" }, { name: "Bo" }],
+    meta: [
+      { name: "application-name", content: "Example" },
+      { name: "apple-itunes-app", content: "app-id=1" },
+    ],
+  });
+
+  it("writes the site's robots, keywords, authors, tags and image size on every page", () => {
+    const tags = site.pageHead({ title: "T", description: "D", path: "/t" });
+    expect(content(tags, "robots")?.content).toBe("index, follow");
+    expect(content(tags, "keywords")?.content).toBe("one, two");
+    expect(tags.meta.filter((m) => "name" in m && m.name === "author")).toEqual([
+      { name: "author", content: "Ann" },
+      { name: "author", content: "Bo" },
+    ]);
+    expect(content(tags, "application-name")?.content).toBe("Example");
+    expect(content(tags, "og:image:width")?.content).toBe("1200");
+    expect(content(tags, "twitter:image:alt")?.content).toBe("Example card");
+    expect(tags.links).toEqual([
+      { rel: "canonical", href: "https://example.com/t" },
+      { rel: "author", href: "https://x.com/ann" },
+    ]);
+  });
+
+  it("lets a page replace each default", () => {
+    const tags = site.pageHead({
+      title: "T",
+      description: "D",
+      path: "/t",
+      noindex: true,
+      keywords: ["three"],
+      meta: [{ name: "apple-itunes-app", content: "app-id=2" }],
+    });
+    expect(content(tags, "robots")?.content).toBe("noindex");
+    expect(content(tags, "keywords")?.content).toBe("three");
+    expect(tags.meta.filter((m) => "name" in m && m.name === "apple-itunes-app")).toEqual([
+      { name: "apple-itunes-app", content: "app-id=2" },
+    ]);
+  });
+});
+
+describe("page links and structured data", () => {
+  it("writes alternates after the canonical, then extra links", () => {
+    const tags = pageHead({
+      title: "T",
+      description: "D",
+      path: "/t",
+      alternates: [
+        { hreflang: "ja", href: "/ja/t" },
+        { type: "application/rss+xml", title: "Feed", href: "https://example.com/feed.xml" },
+      ],
+      links: [{ rel: "preload", href: "/font.woff2", type: "font/woff2" }],
+    });
+    expect(tags.links).toEqual([
+      { rel: "canonical", href: "https://example.com/t" },
+      { rel: "alternate", hreflang: "ja", href: "https://example.com/ja/t" },
+      { rel: "alternate", type: "application/rss+xml", title: "Feed", href: "https://example.com/feed.xml" },
+      { rel: "preload", href: "/font.woff2", type: "font/woff2" },
+    ]);
+  });
+
+  it("writes article:section", () => {
+    const tags = pageHead({ title: "T", description: "D", path: "/t", type: "article", section: "Guides" });
+    expect(content(tags, "article:section")?.content).toBe("Guides");
+  });
+
+  it("writes JSON-LD as one script that cannot close its tag", () => {
+    const tags = pageHead({
+      title: "T",
+      description: "D",
+      path: "/t",
+      jsonLd: { "@type": "Article", headline: "</script><b>&" },
+    });
+    expect(tags.scripts).toHaveLength(1);
+    const script = tags.scripts?.[0];
+    expect(script?.type).toBe("application/ld+json");
+    expect(script?.children).not.toMatch(/[<>&]/);
+    expect(JSON.parse(script?.children ?? "")).toEqual({
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: "</script><b>&",
+    });
+    expect(pageHead({ title: "T", description: "D", path: "/t" }).scripts).toBeUndefined();
+  });
+
+  it("wraps several JSON-LD nodes in a graph and keeps a given context", () => {
+    expect(JSON.parse(jsonLdScript([{ "@type": "Organization" }, { "@type": "WebSite" }]).children)).toEqual({
+      "@context": "https://schema.org",
+      "@graph": [{ "@type": "Organization" }, { "@type": "WebSite" }],
+    });
+    expect(JSON.parse(jsonLdScript({ "@context": "https://example.org", "@type": "Thing" }).children)).toEqual({
+      "@context": "https://example.org",
+      "@type": "Thing",
+    });
   });
 });
 

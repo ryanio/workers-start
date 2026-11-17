@@ -13,8 +13,8 @@ export interface SiteHead {
   url: string;
   /** Used for `og:site_name` and the default title suffix. */
   name: string;
-  /** Path under the site, or an absolute URL, of the default share image. */
-  defaultImage?: string;
+  /** The default share image: a path or URL, or an object with size, alt and type. */
+  defaultImage?: string | PageImage;
   /** Author's handle with the @, for `twitter:creator`. */
   twitterCreator?: string;
   /** Site's handle with the @, for `twitter:site`. */
@@ -23,6 +23,18 @@ export interface SiteHead {
   locale?: string;
   /** Default `(title) => \`${title} | ${name}\``. */
   titleTemplate?: (title: string) => string;
+  /** Robots directive for pages that set neither `robots` nor `noindex`, such as `index, follow`. */
+  robots?: string;
+  /** Keywords for pages that set none. */
+  keywords?: string[];
+  /** Site authors: a `meta name="author"` each, and a `link rel="author"` for each with a URL. */
+  authors?: { name: string; url?: string }[];
+  /**
+   * Tags written on every page before the page's own `meta`, such as
+   * `application-name` or an App Store banner. A page tag with the same
+   * name or property replaces the site's.
+   */
+  meta?: MetaTag[];
 }
 
 export interface PageImage {
@@ -61,6 +73,8 @@ export interface PageSeo {
   authors?: string[];
   /** For articles: one `article:tag` each. */
   tags?: string[];
+  /** For articles: `article:section`. */
+  section?: string;
   keywords?: string[];
   /** Adds `robots: noindex`. Ignored when `robots` is set. */
   noindex?: boolean;
@@ -70,13 +84,70 @@ export interface PageSeo {
   canonical?: string | false;
   /** Extra tags, appended last. */
   meta?: MetaTag[];
+  /**
+   * `link rel="alternate"` entries after the canonical: language versions
+   * with `hreflang`, or feeds with `type`. `href` is a path or URL.
+   */
+  alternates?: { href: string; hreflang?: string; type?: string; title?: string }[];
+  /** Extra links, appended last as given. */
+  links?: HeadLink[];
+  /**
+   * schema.org data, written as one `application/ld+json` script. An array
+   * becomes an `@graph`. `@context` is added when missing.
+   */
+  jsonLd?: object | object[];
 }
 
 export type MetaTag = { title: string } | { name: string; content: string } | { property: string; content: string };
 
+export interface HeadLink {
+  rel: string;
+  href: string;
+  type?: string;
+  hreflang?: string;
+  title?: string;
+  sizes?: string;
+}
+
+export interface HeadScript {
+  type: string;
+  children: string;
+}
+
 export interface HeadTags {
   meta: MetaTag[];
-  links: { rel: string; href: string }[];
+  links: HeadLink[];
+  /** Present only when the page passes `jsonLd`. */
+  scripts?: HeadScript[];
+}
+
+const SCHEMA_CONTEXT = "https://schema.org";
+
+/**
+ * A JSON-LD script for a route's `head().scripts`. An array becomes an
+ * `@graph`; `@context` is added when missing. `<`, `>`, `&`, U+2028 and
+ * U+2029 are escaped, so no value can close the script tag.
+ */
+export function jsonLdScript(data: object | object[]): HeadScript {
+  const body = Array.isArray(data)
+    ? { "@context": SCHEMA_CONTEXT, "@graph": data }
+    : "@context" in data
+      ? data
+      : { "@context": SCHEMA_CONTEXT, ...data };
+  const children = JSON.stringify(body)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+  return { type: "application/ld+json", children };
+}
+
+/** The name or property a meta tag is keyed by, or undefined for the title. */
+function metaKey(tag: MetaTag): string | undefined {
+  if ("name" in tag) return `name:${tag.name}`;
+  if ("property" in tag) return `property:${tag.property}`;
+  return undefined;
 }
 
 export function createPageHead(site: SiteHead): {
@@ -111,12 +182,16 @@ export function createPageHead(site: SiteHead): {
       { title: seo.rawTitle ? seo.title : template(seo.title) },
       { name: "description", content: seo.description },
     ];
-    const robots = seo.robots ?? (seo.noindex ? "noindex" : undefined);
+    const robots = seo.robots ?? (seo.noindex ? "noindex" : site.robots);
     if (robots) {
       meta.push({ name: "robots", content: robots });
     }
-    if (seo.keywords?.length) {
-      meta.push({ name: "keywords", content: seo.keywords.join(", ") });
+    const keywords = seo.keywords ?? site.keywords;
+    if (keywords?.length) {
+      meta.push({ name: "keywords", content: keywords.join(", ") });
+    }
+    for (const author of site.authors ?? []) {
+      meta.push({ name: "author", content: author.name });
     }
     meta.push(
       { property: "og:title", content: socialTitle },
@@ -137,6 +212,7 @@ export function createPageHead(site: SiteHead): {
     if (seo.modified) meta.push({ property: "article:modified_time", content: seo.modified });
     for (const author of seo.authors ?? []) meta.push({ property: "article:author", content: author });
     for (const tag of seo.tags ?? []) meta.push({ property: "article:tag", content: tag });
+    if (seo.section) meta.push({ property: "article:section", content: seo.section });
 
     meta.push({ name: "twitter:card", content: imageUrl ? "summary_large_image" : "summary" });
     if (site.twitterSite) meta.push({ name: "twitter:site", content: site.twitterSite });
@@ -149,11 +225,20 @@ export function createPageHead(site: SiteHead): {
       meta.push({ name: "twitter:image", content: imageUrl });
       if (image?.alt) meta.push({ name: "twitter:image:alt", content: image.alt });
     }
+    const pageKeys = new Set((seo.meta ?? []).map(metaKey));
+    meta.push(...(site.meta ?? []).filter((tag) => !pageKeys.has(metaKey(tag))));
     meta.push(...(seo.meta ?? []));
 
-    const links =
+    const links: HeadLink[] =
       seo.canonical === false ? [] : [{ rel: "canonical", href: seo.canonical ? absoluteUrl(seo.canonical) : url }];
-    return { meta, links };
+    for (const alternate of seo.alternates ?? []) {
+      links.push({ rel: "alternate", ...alternate, href: absoluteUrl(alternate.href) });
+    }
+    for (const author of site.authors ?? []) {
+      if (author.url) links.push({ rel: "author", href: absoluteUrl(author.url) });
+    }
+    links.push(...(seo.links ?? []));
+    return seo.jsonLd ? { meta, links, scripts: [jsonLdScript(seo.jsonLd)] } : { meta, links };
   };
 
   return { pageHead, absoluteUrl };

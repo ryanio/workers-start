@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * workers-start-check-bundle [--dist dir ...] [--root dir] [--skip path ...] [--allow KEY ...] [--public-prefix PREFIX ...]
+ * workers-start-check-bundle [--dist dir ...] [--root dir] [--env-dir dir ...] [--skip path ...] [--allow KEY ...] [--public-prefix PREFIX ...]
  *
  * Exits 1 if any local env value appears in a built file. Run it between the
  * build and the deploy.
@@ -12,7 +12,10 @@ import { checkBundle, DEFAULT_PUBLIC_PREFIXES, DEFAULT_SKIP } from "./check-bund
 const USAGE = `Usage: workers-start-check-bundle [options]
 
   --dist <dir>   Build directory to scan, relative to --root. Repeatable. Default: dist
-  --root <dir>   Directory holding the .env and .dev.vars files. Default: .
+  --root <dir>   Base for the other paths. Default: .
+  --env-dir <dir>
+                 Directory holding .env and .dev.vars files, relative to --root.
+                 Repeatable, for a package and its monorepo root. Default: --root
   --skip <path>  Path inside a build directory that never ships. Repeatable.
                  Always skipped: ${DEFAULT_SKIP.join(", ")}
   --allow <KEY>  Env key whose value is public. Repeatable.
@@ -22,6 +25,7 @@ const USAGE = `Usage: workers-start-check-bundle [options]
 
 interface Args {
   dists: string[];
+  envDirs: string[];
   root: string;
   skip: string[];
   allow: string[];
@@ -31,6 +35,7 @@ interface Args {
 function parseArgs(argv: string[]): Args {
   const args: Args = {
     dists: [],
+    envDirs: [],
     root: ".",
     skip: [...DEFAULT_SKIP],
     allow: [],
@@ -44,7 +49,14 @@ function parseArgs(argv: string[]): Args {
     }
     const value = argv[i + 1];
     if (
-      !(flag === "--dist" || flag === "--root" || flag === "--skip" || flag === "--allow" || flag === "--public-prefix")
+      !(
+        flag === "--dist" ||
+        flag === "--root" ||
+        flag === "--env-dir" ||
+        flag === "--skip" ||
+        flag === "--allow" ||
+        flag === "--public-prefix"
+      )
     ) {
       throw new Error(`Unknown argument: ${flag}\n\n${USAGE}`);
     }
@@ -54,12 +66,16 @@ function parseArgs(argv: string[]): Args {
     i++;
     if (flag === "--dist") args.dists.push(value);
     else if (flag === "--root") args.root = value;
+    else if (flag === "--env-dir") args.envDirs.push(value);
     else if (flag === "--skip") args.skip.push(value.replace(/^\.?\//, ""));
     else if (flag === "--allow") args.allow.push(value);
     else args.publicPrefixes.push(value);
   }
   if (args.dists.length === 0) {
     args.dists.push("dist");
+  }
+  if (args.envDirs.length === 0) {
+    args.envDirs.push(".");
   }
   return args;
 }
@@ -68,7 +84,8 @@ function main(): void {
   const args = parseArgs(process.argv.slice(2));
   const root = resolve(args.root);
   const dists = args.dists.map((dist) => resolve(root, dist));
-  const result = checkBundle(root, dists, {
+  const envDirs = args.envDirs.map((dir) => resolve(root, dir));
+  const result = checkBundle(envDirs, dists, {
     skip: args.skip,
     allow: args.allow,
     publicPrefixes: args.publicPrefixes,
