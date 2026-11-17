@@ -21,6 +21,8 @@ This came out of moving my sites from Next.js on OpenNext to TanStack Start on W
 npm install workers-start
 ```
 
+The secret check CLI needs Node 22 or later. The other entry points run in workerd and the browser.
+
 ## Worker entry
 
 `workers-start/entry` wraps the Start handler.
@@ -127,9 +129,15 @@ Run it between the build and the deploy:
 "deploy": "vite build && workers-start-check-bundle && wrangler deploy"
 ```
 
-It reads every value in your local `.env*` and `.dev.vars*` files (not `.example` or `.tpl` templates, and not `op://` references) and fails if any of them appears in a built file. It parses dotenv the way dotenv does, and searches for each value raw, URL-encoded, JSON-escaped and base64-encoded, inside `.gz` and `.br` files too. Symlinks are skipped. `VITE_*` keys are public by design and ignored.
+It reads every value in your local `.env*` and `.dev.vars*` files (not `.example` or `.tpl` templates, and not `op://` references) and fails if any of them appears in a built file. It parses dotenv the way dotenv does, and searches for each value raw, URL-encoded, JSON-escaped and base64-encoded, inside `.gz` and `.br` files too. Symlinks are skipped. `VITE_*` keys are public by design and ignored. Values shorter than 12 characters are skipped, since short values like `true` or a port number match by chance.
 
 It skips `server/.dev.vars` inside the build directory, which wrangler never uploads. Flags: `--dist <dir>` (repeatable; default `dist`, `out` for a static site), `--root <dir>` (the base the other paths resolve against), `--env-dir <dir>` (repeatable; where the env files are, default `--root`; in a monorepo package, `--env-dir . --env-dir ../..` reads the package's and the root's), `--skip <path inside the build>`, `--allow <KEY>` for another public value, `--public-prefix <PREFIX>` for a whole family of them (for example `NEXT_PUBLIC_` in an app that kept its Next.js variable names).
+
+The same check is exported from `workers-start/check-bundle` as `checkBundle(envDirs, dists, options)`, which returns the leaked keys instead of exiting, for a build script that runs it in process.
+
+## Related
+
+[`workers-jobs`](https://github.com/ryanio/workers-jobs) runs background jobs on Cron Triggers and Workflows, with dedup, explicit retries, a run ledger and a backstop for missed cron slots.
 
 ## License
 
