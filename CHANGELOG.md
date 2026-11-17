@@ -2,7 +2,7 @@
 
 ## 0.1.1 (2026-11-17)
 
-First version on npm. 0.1.0 was staged on the registry but never published, and npm does not reuse a version number. The code is the same as 0.1.0.
+The same code as 0.1.0, published from GitHub Actions through trusted publishing with a provenance statement. 0.1.0 was published by hand.
 
 ## 0.1.0 (2026-11-17)
 
