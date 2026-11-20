@@ -4,6 +4,21 @@ The parts every TanStack Start app on Cloudflare Workers ends up writing by hand
 
 It has no runtime dependencies. Each piece is its own entry point, so an app takes only what it uses.
 
+## What is in it
+
+Check this list before writing a helper in an app. Anything generic to TanStack Start on Workers that is missing belongs here, with a test, rather than in one app.
+
+| Entry point                  | Exports                                                                       | For                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `workers-start/entry`        | `createEntry`, `withHeaders`, `wantsMarkdown`, `acceptsHtml`                  | The Worker entry: Markdown for agents, Accept fixes, 405s, headers on every response |
+| `workers-start/head`         | `createPageHead`, `jsonLdScript`                                              | Per-route head tags and escaped JSON-LD                                              |
+| `workers-start/scripts`      | `themeScript`, `analyticsScript`, `tagManagerScript`, `gaEvent`, `inlineJson` | Inline bootstraps, analytics events, JSON safe inside a script tag                   |
+| `workers-start/cache`        | `withEdgeCache`, `sharedMaxAge`, `withoutBrowserMaxAge`                       | Rendered pages kept in the Workers Cache API                                         |
+| `workers-start/workers`      | `getBinding`, `getEnvString`, `afterResponse`, `isKvNamespace`                | Bindings and `waitUntil` without a static `cloudflare:workers` import                |
+| `workers-start/seo`          | `sitemapXml`, `robotsTxt`, `escapeXml`                                        | `/sitemap.xml` and `/robots.txt` bodies                                              |
+| `workers-start/accept`       | `parseAccept`, `quality`                                                      | Accept header parsing                                                                |
+| `workers-start/check-bundle` | `workers-start-check-bundle` (bin)                                            | Fails a build that would ship a local secret                                         |
+
 ## Why
 
 This came out of moving my sites from Next.js on OpenNext to TanStack Start on Workers. Each migration hit the same problems, and each app had started to solve them its own way:
@@ -137,7 +152,32 @@ In tests, `setWorkersModule({ env, waitUntil })` stands in for the runtime. Unde
 - `analyticsScript({ measurementId, hosts })` loads GA4 only on the listed hostnames, so local dev and preview deploys never report. `skipPaths` keeps it off paths like `/admin`, and `consentCookie` waits for a consent cookie.
 - `tagManagerScript({ containerId, hosts })` does the same for a Google Tag Manager container (`GTM-…`): it pushes the `gtm.js` start event and loads `gtm.js` only on the listed hostnames, with the same `skipPaths` and `consentCookie` options. The `<noscript>` iframe fallback is not included.
 
+`gaEvent(name, params)` sends an event from the browser: through the `gtag` that `analyticsScript` defines, or as `{ event, ...params }` on a Tag Manager `dataLayer`. Where neither bootstrap ran (local dev, a skipped path, an ad blocker) it does nothing, so callers need no guard or `window.gtag` type of their own.
+
+```ts
+import { gaEvent } from "workers-start/scripts";
+
+gaEvent("sign_up", { method: "email" });
+```
+
+To render JSON-LD in the page body rather than through `head()`, use the same escaping: `<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data).children }} />`. Never put a bare `JSON.stringify` inside a script tag: a value containing `</script>` ends it.
+
 Every value is embedded with `inlineJson`, which escapes `<`, `>`, `&`, U+2028 and U+2029, so no option can close the script tag. `jsonLdScript` escapes its body the same way.
+
+## Edge page cache
+
+A Worker on a custom domain runs ahead of the zone cache, so Cache Rules never see its pages. `withEdgeCache` keeps rendered pages in the Workers Cache API instead: a GET 200 whose `Cache-Control` has `s-maxage` and no `Set-Cookie` is stored for that long, keyed by URL, and later GETs are answered without rendering.
+
+```ts
+import { withEdgeCache } from "workers-start/cache";
+
+// in the Worker's fetch, around the Start handler
+return withEdgeCache(request, () => handler.fetch(request), {
+  version: BUILD_ID, // a new deploy never serves the previous build's HTML
+});
+```
+
+A cache hit has its browser `max-age` removed (the zone adds one, and a browser holding page HTML that long outlives the next deploy's assets). The store runs after the response through `afterResponse`; pass `waitUntil` or `cache` to override, as tests do. Outside workerd every request renders.
 
 ## Sitemap and robots.txt
 

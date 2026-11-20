@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 (2026-11-20)
+
+- `workers-start/cache`: `withEdgeCache(request, render, { version })` keeps rendered pages in the Workers Cache API by their `s-maxage`, with `sharedMaxAge` and `withoutBrowserMaxAge`.
+- `workers-start/scripts`: `gaEvent(name, params)` sends an analytics event through `gtag` or a Tag Manager `dataLayer`, and does nothing where neither loaded.
+- `workers-start/check-bundle` no longer exports its internal helpers (`MIN_SECRET_LENGTH`, `encodings`, `localEnvPairs`, `listFiles`, `readBuilt`). They were never documented and no consumer imported them; the bin and `DEFAULT_SKIP`/`DEFAULT_PUBLIC_PREFIXES` are unchanged.
+- README: an index of every entry point.
+
 ## 0.6.1 (2026-11-20)
 
 - `inlineJson` also escapes `>` and `&`, so every inline script the package builds escapes the same five characters. The output still parses to the same value.

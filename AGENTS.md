@@ -8,13 +8,16 @@
 - `src/entry.ts`: `createEntry`, the Worker entry wrapper (Markdown negotiation, Accept normalization, `Vary: Accept`, 204 and 405 on read-only prefixes) and `withHeaders`.
 - `src/head.ts`: `createPageHead`.
 - `src/workers.ts`: lazy `cloudflare:workers` access.
-- `src/scripts.ts`: inline theme and analytics bootstraps.
+- `src/scripts.ts`: inline theme and analytics bootstraps, and `gaEvent`.
+- `src/cache.ts`: `withEdgeCache`, the edge page cache on the Workers Cache API.
 - `src/seo.ts`: sitemap and robots.txt bodies.
 - `src/check-bundle.ts`, `src/check-bundle-cli.ts`: the secret check and its `workers-start-check-bundle` bin.
 - `scripts/doc-refs/`: synced from `~/dev/doc-refs` (edit it there and run `npm run sync`); checks that paths named in these docs exist. `scripts/check-lockfile-platforms.mjs` fails when the lockfile loses the Linux binaries CI needs.
 - `test/`: Node tests. The CLI and package tests run the built `dist/`, so `npm test` builds first.
 
 ## Rules
+
+- Consumers: 123shoot, calvin, coral, glyphbots, guild, gwei, ryanio-site and sitewise (all in `~/dev`). Before adding a feature, search them for hand-rolled versions of it; after a release, move them onto it. The README's "What is in it" table lists every entry point and must stay current.
 
 - Never regenerate `package-lock.json` from scratch on a Mac: it drops the Linux binaries CI needs.
 - No runtime dependencies. Only `check-bundle*` may import `node:` modules; every other entry point runs in workerd and the browser.

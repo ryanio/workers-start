@@ -12,7 +12,7 @@ import { join, relative, sep } from "node:path";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
 
 /** Values shorter than this are flags or placeholders, not secrets. */
-export const MIN_SECRET_LENGTH = 12;
+const MIN_SECRET_LENGTH = 12;
 
 /**
  * Paths, relative to a build directory, that are never uploaded: the copy of
@@ -89,7 +89,7 @@ function hasClosingQuote(body: string, quote: string): boolean {
 }
 
 /** The forms a value can take once it is in a bundle or a URL. */
-export function encodings(value: string): string[] {
+function encodings(value: string): string[] {
   const forms = new Set([
     value,
     encodeURIComponent(value),
@@ -134,9 +134,7 @@ export function leakedKeys(
 }
 
 /** Every KEY=value pair in the local env files of one or more directories. */
-export function localEnvPairs(
-  dirs: string | readonly string[],
-): [string, string][] {
+function localEnvPairs(dirs: string | readonly string[]): [string, string][] {
   return (typeof dirs === "string" ? [dirs] : dirs).flatMap((dir) =>
     readdirSync(dir)
       .filter((name) => ENV_FILE.test(name) && !NOT_SECRETS.test(name))
@@ -149,7 +147,7 @@ export function localEnvPairs(
  * walk never loops or leaves the directory. `skip` holds paths relative to
  * `dir`, with forward slashes.
  */
-export function listFiles(
+function listFiles(
   dir: string,
   skip: readonly string[] = DEFAULT_SKIP,
 ): string[] {
@@ -176,7 +174,7 @@ export function listFiles(
 }
 
 /** File contents as text, decompressing `.gz` and `.br` files. */
-export function readBuilt(path: string): string {
+function readBuilt(path: string): string {
   const bytes = readFileSync(path);
   try {
     if (path.endsWith(".gz")) return gunzipSync(bytes).toString("latin1");

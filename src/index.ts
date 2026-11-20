@@ -1,5 +1,11 @@
 export type { MediaRange } from "./accept.js";
 export { parseAccept, quality } from "./accept.js";
+export type { EdgeCacheOptions } from "./cache.js";
+export {
+  sharedMaxAge,
+  withEdgeCache,
+  withoutBrowserMaxAge,
+} from "./cache.js";
 export type {
   EntryOptions,
   FetchHandler,
@@ -29,11 +35,13 @@ export type {
 export { createPageHead, jsonLdScript } from "./head.js";
 export type {
   AnalyticsScriptOptions,
+  GaEventParams,
   TagManagerScriptOptions,
   ThemeScriptOptions,
 } from "./scripts.js";
 export {
   analyticsScript,
+  gaEvent,
   inlineJson,
   tagManagerScript,
   themeScript,

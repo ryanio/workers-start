@@ -125,3 +125,27 @@ export function tagManagerScript(options: TagManagerScriptOptions): string {
   const id = inlineJson(options.containerId);
   return `(function(){${gateChecks(options)}window.dataLayer=window.dataLayer||[];window.dataLayer.push({"gtm.start":new Date().getTime(),event:"gtm.js"});var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtm.js?id="+${id};document.head.appendChild(s);})();`;
 }
+
+/** Event parameters GA4 accepts: strings, numbers and booleans. */
+export type GaEventParams = Record<
+  string,
+  string | number | boolean | undefined
+>;
+
+/**
+ * Sends an analytics event. With `analyticsScript` it calls the `gtag` the
+ * bootstrap defines; with `tagManagerScript` (no `gtag`) it pushes
+ * `{ event: name, ...params }` to the container's `dataLayer`. It does nothing
+ * on the server, or where neither bootstrap ran (a skipped host or path, an
+ * ad blocker), so callers need no guard.
+ */
+export function gaEvent(name: string, params: GaEventParams = {}): void {
+  if (typeof window === "undefined") return;
+  const w = window as {
+    gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
+  };
+  if (typeof w.gtag === "function") w.gtag("event", name, params);
+  else if (Array.isArray(w.dataLayer))
+    w.dataLayer.push({ event: name, ...params });
+}

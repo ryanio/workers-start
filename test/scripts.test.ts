@@ -2,6 +2,7 @@ import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   analyticsScript,
+  gaEvent,
   inlineJson,
   tagManagerScript,
   themeScript,
@@ -169,5 +170,39 @@ describe("tagManagerScript", () => {
     expect(() =>
       tagManagerScript({ containerId: "GTM-1');alert(1)//", hosts: [] }),
     ).toThrow();
+  });
+});
+
+describe("gaEvent", () => {
+  const w = globalThis as { window?: unknown };
+
+  it("does nothing on the server", () => {
+    expect(() => gaEvent("x")).not.toThrow();
+  });
+
+  it("calls gtag when analyticsScript set it up", () => {
+    const calls: unknown[][] = [];
+    w.window = { gtag: (...args: unknown[]) => calls.push(args) };
+    gaEvent("sign_up", { method: "email" });
+    gaEvent("practice_hunt");
+    expect(calls).toEqual([
+      ["event", "sign_up", { method: "email" }],
+      ["event", "practice_hunt", {}],
+    ]);
+    delete w.window;
+  });
+
+  it("pushes to a GTM dataLayer when there is no gtag", () => {
+    const dataLayer: unknown[] = [];
+    w.window = { dataLayer };
+    gaEvent("sign_up", { method: "email" });
+    expect(dataLayer).toEqual([{ event: "sign_up", method: "email" }]);
+    delete w.window;
+  });
+
+  it("does nothing in a browser where neither bootstrap ran", () => {
+    w.window = {};
+    expect(() => gaEvent("x")).not.toThrow();
+    delete w.window;
   });
 });
