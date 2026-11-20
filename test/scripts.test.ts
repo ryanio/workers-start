@@ -1,6 +1,11 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { analyticsScript, inlineJson, themeScript } from "../src/scripts.js";
+import {
+  analyticsScript,
+  inlineJson,
+  tagManagerScript,
+  themeScript,
+} from "../src/scripts.js";
 
 interface Page {
   stored?: string | null;
@@ -125,5 +130,40 @@ describe("analyticsScript", () => {
 describe("inlineJson", () => {
   it("escapes characters that end a script or a line", () => {
     expect(inlineJson("</script>\u2028")).toBe('"\\u003c/script>\\u2028"');
+  });
+});
+
+describe("tagManagerScript", () => {
+  const script = tagManagerScript({
+    containerId: "GTM-ABC123",
+    hosts: ["example.com"],
+    skipPaths: ["/admin"],
+  });
+  const gtm = ["https://www.googletagmanager.com/gtm.js?id=GTM-ABC123"];
+
+  it("loads gtm.js and pushes the start event only on a production host", () => {
+    const live = run(script, { hostname: "Example.com" });
+    expect(live.appended).toEqual(gtm);
+    expect(live.window.dataLayer).toEqual([
+      expect.objectContaining({
+        event: "gtm.js",
+        "gtm.start": expect.any(Number),
+      }),
+    ]);
+    const local = run(script, { hostname: "localhost" });
+    expect(local.appended).toEqual([]);
+    expect(local.window.dataLayer).toBeUndefined();
+    expect(
+      run(script, { hostname: "example.com", pathname: "/admin" }).appended,
+    ).toEqual([]);
+  });
+
+  it("rejects anything that is not a container id", () => {
+    expect(() =>
+      tagManagerScript({ containerId: "G-ABC123", hosts: [] }),
+    ).toThrow();
+    expect(() =>
+      tagManagerScript({ containerId: "GTM-1');alert(1)//", hosts: [] }),
+    ).toThrow();
   });
 });

@@ -66,15 +66,12 @@ export interface AnalyticsScriptOptions {
   consentCookie?: { name: string; value?: string };
 }
 
-/**
- * Google Analytics 4 bootstrap gated on `location.hostname`, so local dev and
- * preview deploys never fetch gtag.js or land in the production property.
- */
-export function analyticsScript(options: AnalyticsScriptOptions): string {
-  if (!/^G-[A-Z0-9]+$/.test(options.measurementId)) {
-    throw new Error(`Not a GA4 measurement id: ${options.measurementId}`);
-  }
-  const id = inlineJson(options.measurementId);
+/** The hostname, path and consent checks both analytics bootstraps start with. */
+function gateChecks(options: {
+  hosts: string[];
+  skipPaths?: string[];
+  consentCookie?: { name: string; value?: string };
+}): string {
   const hosts = inlineJson(options.hosts.map((h) => h.toLowerCase()));
   const checks = [
     `if(${hosts}.indexOf(location.hostname.toLowerCase())===-1)return;`,
@@ -93,5 +90,35 @@ export function analyticsScript(options: AnalyticsScriptOptions): string {
       `var k=document.cookie.split(/;\\s*/);if(!k.some(function(c){return ${pair === null ? `c.split("=")[0]===${inlineJson(options.consentCookie.name)}` : `c===${inlineJson(pair)}`}}))return;`,
     );
   }
-  return `(function(){${checks.join("")}var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtag/js?id="+${id};document.head.appendChild(s);window.dataLayer=window.dataLayer||[];function gtag(){window.dataLayer.push(arguments);}window.gtag=gtag;gtag("js",new Date());gtag("config",${id});})();`;
+  return checks.join("");
+}
+
+/**
+ * Google Analytics 4 bootstrap gated on `location.hostname`, so local dev and
+ * preview deploys never fetch gtag.js or land in the production property.
+ */
+export function analyticsScript(options: AnalyticsScriptOptions): string {
+  if (!/^G-[A-Z0-9]+$/.test(options.measurementId)) {
+    throw new Error(`Not a GA4 measurement id: ${options.measurementId}`);
+  }
+  const id = inlineJson(options.measurementId);
+  return `(function(){${gateChecks(options)}var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtag/js?id="+${id};document.head.appendChild(s);window.dataLayer=window.dataLayer||[];function gtag(){window.dataLayer.push(arguments);}window.gtag=gtag;gtag("js",new Date());gtag("config",${id});})();`;
+}
+
+export interface TagManagerScriptOptions
+  extends Omit<AnalyticsScriptOptions, "measurementId"> {
+  /** Google Tag Manager container id, `GTM-…`. Public; safe in the bundle. */
+  containerId: string;
+}
+
+/**
+ * Google Tag Manager bootstrap with the same gates as `analyticsScript`: only
+ * the listed hosts load gtm.js, so local dev and previews never fire tags.
+ */
+export function tagManagerScript(options: TagManagerScriptOptions): string {
+  if (!/^GTM-[A-Z0-9]+$/.test(options.containerId)) {
+    throw new Error(`Not a Tag Manager container id: ${options.containerId}`);
+  }
+  const id = inlineJson(options.containerId);
+  return `(function(){${gateChecks(options)}window.dataLayer=window.dataLayer||[];window.dataLayer.push({"gtm.start":new Date().getTime(),event:"gtm.js"});var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtm.js?id="+${id};document.head.appendChild(s);})();`;
 }

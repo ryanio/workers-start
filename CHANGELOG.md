@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 (2026-11-19)
+
+- `workers-start/scripts`: `tagManagerScript({ containerId, hosts })`, a Google Tag Manager bootstrap with the same host, path and consent gates as `analyticsScript`.
+
 ## 0.4.0 (2026-11-17)
 
 - Removed the `workers-start/biome` preset. A Workers helper library is the wrong place for a lint opinion, and once it shrank to Biome's defaults there was little left to share. Apps that extended it put the few lines they need in their own `biome.jsonc`: `vcs.useIgnoreFile`, `formatter.indentStyle: "space"`, `css.parser.tailwindDirectives` if they use Tailwind, and the rules they want on top of `recommended`.
