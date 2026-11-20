@@ -15,6 +15,7 @@ export {
   normalizePath,
   underPrefix,
   wantsMarkdown,
+  withHeaders,
 } from "./entry.js";
 export type {
   HeadLink,
@@ -26,8 +27,19 @@ export type {
   SiteHead,
 } from "./head.js";
 export { createPageHead, jsonLdScript } from "./head.js";
-export type { AnalyticsScriptOptions, ThemeScriptOptions } from "./scripts.js";
-export { analyticsScript, inlineJson, themeScript } from "./scripts.js";
+export type {
+  AnalyticsScriptOptions,
+  TagManagerScriptOptions,
+  ThemeScriptOptions,
+} from "./scripts.js";
+export {
+  analyticsScript,
+  inlineJson,
+  tagManagerScript,
+  themeScript,
+} from "./scripts.js";
+export type { RobotsOptions, RobotsRule, SitemapEntry } from "./seo.js";
+export { escapeXml, robotsTxt, sitemapXml } from "./seo.js";
 export type { WorkersModule } from "./workers.js";
 export {
   afterResponse,

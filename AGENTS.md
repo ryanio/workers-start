@@ -5,10 +5,11 @@
 ## Layout
 
 - `src/accept.ts`: Accept parsing with q-values.
-- `src/entry.ts`: `createEntry`, the Worker entry wrapper (Markdown negotiation, Accept normalization, `Vary: Accept`, 204 and 405 on read-only prefixes).
+- `src/entry.ts`: `createEntry`, the Worker entry wrapper (Markdown negotiation, Accept normalization, `Vary: Accept`, 204 and 405 on read-only prefixes) and `withHeaders`.
 - `src/head.ts`: `createPageHead`.
 - `src/workers.ts`: lazy `cloudflare:workers` access.
 - `src/scripts.ts`: inline theme and analytics bootstraps.
+- `src/seo.ts`: sitemap and robots.txt bodies.
 - `src/check-bundle.ts`, `src/check-bundle-cli.ts`: the secret check and its `workers-start-check-bundle` bin.
 - `test/`: Node tests. The CLI and package tests run the built `dist/`, so `npm test` builds first.
 

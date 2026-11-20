@@ -60,6 +60,23 @@ Details that matter when you compare against production:
 - `markdown(path, request, page)` gets a third argument: `await page.html()` renders the same request through the handler as HTML (extra fetch arguments passed through), for a renderer that converts the page rather than building Markdown from data.
 - Static assets are served before the Worker runs. On a prerendered site, or a static site on Pages, none of this applies to the prerendered pages unless `assets.run_worker_first` sends them through the Worker.
 
+`withHeaders(response, headers, { overwrite })` returns a copy of a response with headers added, for a site's security headers in the Worker's `fetch`. A header the response already has is replaced, or kept with `overwrite: false`.
+
+```ts
+import { withHeaders } from "workers-start/entry";
+
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+};
+
+export default {
+  async fetch(request: Request) {
+    return withHeaders(await entry.fetch(request), SECURITY_HEADERS);
+  },
+};
+```
+
 ## Head tags
 
 `workers-start/head` writes a full head set for every page, so nothing inherits the homepage's share card.
@@ -121,6 +138,39 @@ In tests, `setWorkersModule({ env, waitUntil })` stands in for the runtime. Unde
 - `tagManagerScript({ containerId, hosts })` does the same for a Google Tag Manager container (`GTM-…`): it pushes the `gtm.js` start event and loads `gtm.js` only on the listed hostnames, with the same `skipPaths` and `consentCookie` options. The `<noscript>` iframe fallback is not included.
 
 Every value is embedded with `inlineJson`, which escapes `<`, so no option can close the script tag.
+
+## Sitemap and robots.txt
+
+`workers-start/seo` builds the bodies for `/sitemap.xml` and `/robots.txt` routes. The entries and options take the same shape as Next's `MetadataRoute.Sitemap` and `MetadataRoute.Robots`.
+
+```ts
+import { createFileRoute } from "@tanstack/react-router";
+import { sitemapXml } from "workers-start/seo";
+
+export const Route = createFileRoute("/sitemap.xml")({
+  server: {
+    handlers: {
+      GET: () =>
+        new Response(
+          sitemapXml([
+            {
+              url: "https://example.com",
+              changeFrequency: "daily",
+              priority: 1,
+            },
+            { url: "https://example.com/about", lastModified: "2026-10-02" },
+          ]),
+          { headers: { "content-type": "application/xml" } },
+        ),
+    },
+  },
+});
+```
+
+- `sitemapXml(entries)` writes one element per line and leaves out any field an entry doesn't set. URLs are XML-escaped, so a query string with `&` stays valid. A `Date` for `lastModified` is written as an ISO timestamp, a string as given.
+- `robotsTxt({ rules, host, sitemap })` writes each rule group as `User-Agent`, `Allow` and `Disallow` lines, separated by blank lines, then `Host` and one `Sitemap` line per URL. Every rule field takes a string or an array. With no `rules`, it allows everything to every agent.
+
+The route keeps its own `Content-Type` and `Cache-Control`.
 
 ## Secret check
 

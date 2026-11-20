@@ -6,6 +6,7 @@ import {
   normalizePath,
   underPrefix,
   wantsMarkdown,
+  withHeaders,
 } from "../src/entry.js";
 
 // A stand-in for the Start handler: Start answers 406 to page requests whose
@@ -293,5 +294,27 @@ describe("helpers", () => {
       ),
     ).toBe(true);
     expect(wantsMarkdown(new Request("https://x"))).toBe(false);
+  });
+
+  it("adds headers, keeping existing ones only without overwrite", async () => {
+    const original = new Response("body", {
+      status: 201,
+      statusText: "Created",
+      headers: { "referrer-policy": "no-referrer", "x-app": "1" },
+    });
+    const site = {
+      "Referrer-Policy": "strict-origin",
+      "X-Content-Type-Options": "nosniff",
+    };
+    const kept = withHeaders(original.clone(), site, { overwrite: false });
+    expect(kept.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(kept.headers.get("x-content-type-options")).toBe("nosniff");
+
+    const replaced = withHeaders(original, site);
+    expect(replaced.headers.get("referrer-policy")).toBe("strict-origin");
+    expect(replaced.headers.get("x-app")).toBe("1");
+    expect(replaced.status).toBe(201);
+    expect(replaced.statusText).toBe("Created");
+    expect(await replaced.text()).toBe("body");
   });
 });

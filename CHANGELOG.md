@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 (2026-11-20)
+
+Additions only. Output for existing options is unchanged.
+
+- `workers-start/seo`: `sitemapXml(entries)` and `robotsTxt({ rules, host, sitemap })` for `/sitemap.xml` and `/robots.txt` routes. Sitemap URLs are XML-escaped.
+- `workers-start/entry`: `withHeaders(response, headers, { overwrite })`, a copy of a response with headers added, for site-wide security headers.
+- The root entry point exports `tagManagerScript`, which 0.5.0 added only to `workers-start/scripts`.
+
 ## 0.5.0 (2026-11-19)
 
 - `workers-start/scripts`: `tagManagerScript({ containerId, hosts })`, a Google Tag Manager bootstrap with the same host, path and consent gates as `analyticsScript`.

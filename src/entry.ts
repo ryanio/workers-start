@@ -173,6 +173,29 @@ function withAcceptHtml(request: Request): Request {
   return new Request(request, { headers });
 }
 
+/**
+ * A copy of `response` with `headers` added, such as a site's security
+ * headers. With `overwrite: false`, a header the response already has keeps
+ * its value.
+ */
+export function withHeaders(
+  response: Response,
+  headers: HeadersInit,
+  { overwrite = true }: { overwrite?: boolean } = {},
+): Response {
+  const merged = new Headers(response.headers);
+  new Headers(headers).forEach((value, name) => {
+    if (overwrite || !merged.has(name)) {
+      merged.set(name, value);
+    }
+  });
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: merged,
+  });
+}
+
 function withVaryAccept(response: Response): Response {
   const vary = mergeVary(response.headers.get("vary"), "Accept");
   if (vary === response.headers.get("vary")) {
