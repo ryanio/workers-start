@@ -1,6 +1,6 @@
 {
   "name": "workers-start",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "The parts every TanStack Start app on Cloudflare Workers ends up writing: Markdown for agents on the same URL, a head helper that stops share cards leaking between pages, lazy Workers bindings, and a check that no local secret ships in the build.",
   "license": "MIT",
   "author": "Ryan Ghods",
@@ -82,9 +82,12 @@
     "lint": "biome check",
     "format": "biome check --write",
     "test": "npm run build && vitest run",
-    "check": "npm run lint && npm run typecheck && npm run build && vitest run",
+    "check": "npm run check:doc-refs && npm run check:lockfile && npm run lint && npm run typecheck && npm run build && vitest run && npm run deadcode",
     "prepack": "npm run build",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "deadcode": "knip",
+    "check:doc-refs": "node scripts/doc-refs/doc-refs.mjs",
+    "check:lockfile": "node scripts/check-lockfile-platforms.mjs"
   },
   "publishConfig": {
     "access": "public"
@@ -92,6 +95,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.6.8",
     "@types/node": "^24.19.2",
+    "knip": "^6.47.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

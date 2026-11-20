@@ -137,7 +137,7 @@ In tests, `setWorkersModule({ env, waitUntil })` stands in for the runtime. Unde
 - `analyticsScript({ measurementId, hosts })` loads GA4 only on the listed hostnames, so local dev and preview deploys never report. `skipPaths` keeps it off paths like `/admin`, and `consentCookie` waits for a consent cookie.
 - `tagManagerScript({ containerId, hosts })` does the same for a Google Tag Manager container (`GTM-…`): it pushes the `gtm.js` start event and loads `gtm.js` only on the listed hostnames, with the same `skipPaths` and `consentCookie` options. The `<noscript>` iframe fallback is not included.
 
-Every value is embedded with `inlineJson`, which escapes `<`, so no option can close the script tag.
+Every value is embedded with `inlineJson`, which escapes `<`, `>`, `&`, U+2028 and U+2029, so no option can close the script tag. `jsonLdScript` escapes its body the same way.
 
 ## Sitemap and robots.txt
 

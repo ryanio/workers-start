@@ -257,6 +257,19 @@ describe("page links and structured data", () => {
   });
 });
 
+describe("jsonLdScript escaping", () => {
+  it("cannot be closed or broken by a value", () => {
+    const { children } = jsonLdScript({
+      "@type": "Thing",
+      name: "</script><script>alert(1)</script> & \u2028",
+    });
+    expect(children).not.toMatch(/[<>&\u2028]/);
+    expect(JSON.parse(children).name).toBe(
+      "</script><script>alert(1)</script> & \u2028",
+    );
+  });
+});
+
 describe("absoluteUrl", () => {
   it("resolves paths and passes absolute URLs through", () => {
     expect(absoluteUrl("/")).toBe("https://example.com");

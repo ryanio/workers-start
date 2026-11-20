@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 (2026-11-20)
+
+- `inlineJson` also escapes `>` and `&`, so every inline script the package builds escapes the same five characters. The output still parses to the same value.
+- `jsonLdScript` escapes its body with `inlineJson` instead of a copy of the same rules. Its output is unchanged.
+
 ## 0.6.0 (2026-11-20)
 
 Additions only. Output for existing options is unchanged.

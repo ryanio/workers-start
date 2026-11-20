@@ -128,8 +128,12 @@ describe("analyticsScript", () => {
 });
 
 describe("inlineJson", () => {
-  it("escapes characters that end a script or a line", () => {
-    expect(inlineJson("</script>\u2028")).toBe('"\\u003c/script>\\u2028"');
+  it("escapes characters that end a script, open a comment or break a line", () => {
+    expect(inlineJson("</script>&<!--\u2028")).toBe(
+      '"\\u003c/script\\u003e\\u0026\\u003c!--\\u2028"',
+    );
+    const value = { a: "</script>", b: "x & y > z", c: "\u2029" };
+    expect(JSON.parse(inlineJson(value))).toEqual(value);
   });
 });
 

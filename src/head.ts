@@ -8,6 +8,8 @@
  * icons) in the root route without this helper.
  */
 
+import { inlineJson } from "./scripts.js";
+
 export interface SiteHead {
   /** Absolute origin: `https://example.com`. A trailing slash is ignored. */
   url: string;
@@ -133,8 +135,8 @@ const SCHEMA_CONTEXT = "https://schema.org";
 
 /**
  * A JSON-LD script for a route's `head().scripts`. An array becomes an
- * `@graph`; `@context` is added when missing. `<`, `>`, `&`, U+2028 and
- * U+2029 are escaped, so no value can close the script tag.
+ * `@graph`; `@context` is added when missing. The body is escaped with
+ * `inlineJson`, so no value can close the script tag.
  */
 export function jsonLdScript(data: object | object[]): HeadScript {
   const body = Array.isArray(data)
@@ -142,13 +144,7 @@ export function jsonLdScript(data: object | object[]): HeadScript {
     : "@context" in data
       ? data
       : { "@context": SCHEMA_CONTEXT, ...data };
-  const children = JSON.stringify(body)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-  return { type: "application/ld+json", children };
+  return { type: "application/ld+json", children: inlineJson(body) };
 }
 
 /** The name or property a meta tag is keyed by, or undefined for the title. */

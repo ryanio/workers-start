@@ -5,12 +5,15 @@
  */
 
 /**
- * JSON for embedding in an inline script: `<`, U+2028 and U+2029 are escaped,
- * so no value can close the script tag or break the line.
+ * JSON for embedding in an inline script: `<`, `>`, `&`, U+2028 and U+2029
+ * are escaped, so no value can close the script tag, open a comment or break
+ * the line. The output parses back to the same value.
  */
 export function inlineJson(value: unknown): string {
   return JSON.stringify(value)
     .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
     .replace(/\u2028/g, "\\u2028")
     .replace(/\u2029/g, "\\u2029");
 }

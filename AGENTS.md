@@ -11,10 +11,12 @@
 - `src/scripts.ts`: inline theme and analytics bootstraps.
 - `src/seo.ts`: sitemap and robots.txt bodies.
 - `src/check-bundle.ts`, `src/check-bundle-cli.ts`: the secret check and its `workers-start-check-bundle` bin.
+- `scripts/doc-refs/`: synced from `~/dev/doc-refs` (edit it there and run `npm run sync`); checks that paths named in these docs exist. `scripts/check-lockfile-platforms.mjs` fails when the lockfile loses the Linux binaries CI needs.
 - `test/`: Node tests. The CLI and package tests run the built `dist/`, so `npm test` builds first.
 
 ## Rules
 
+- Never regenerate `package-lock.json` from scratch on a Mac: it drops the Linux binaries CI needs.
 - No runtime dependencies. Only `check-bundle*` may import `node:` modules; every other entry point runs in workerd and the browser.
 - Nothing imports `cloudflare:workers` statically. `src/workers.ts` imports it through a variable specifier.
 - Every new behavior gets a test that fails without it. Follow the `test-audit` skill where it is installed.
@@ -26,7 +28,7 @@
 
 ```bash
 npm install
-npm run check   # biome, tsc, build, tests
+npm run check   # doc refs, lockfile, biome, tsc, build, tests, knip
 npm test        # build, then tests
 npm pack        # builds dist/ and writes the tarball
 ```
